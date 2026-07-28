@@ -1,24 +1,22 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
-
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+import { Stack } from "expo-router";
+import React from "react";
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(auth)" />
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="product-detail" />
+      <Stack.Screen name="checkout" />
+      <Stack.Screen name="order-placed" />
+      <Stack.Screen name="order-tracking" />
+      <Stack.Screen name="order-history" />
+      <Stack.Screen name="notifications" />
+      <Stack.Screen name="search-favorites" />
+      <Stack.Screen name="help-support" />
+      <Stack.Screen name="saved-addresses" />
+      <Stack.Screen name="payment-methods" />
+      <Stack.Screen name="about-burger-yard" />
+    </Stack>
   );
 }
