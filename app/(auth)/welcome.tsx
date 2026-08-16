@@ -27,6 +27,15 @@ export default function WelcomeScreen() {
         resizeMode="cover"
       />
 
+      {/* Sits above the copy block, bottom edge LOGO_GAP clear of the midpoint */}
+      <View style={styles.logoWrap}>
+        <Image
+          source={BRAND_IMAGES.logo}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+      </View>
+
       {/* Anchored to the vertical midpoint, matching top=422 on the 844 frame */}
       <View style={styles.copy}>
         <Text style={styles.tagline}>DON&apos;T BE SHY, TAKE A BITE</Text>
@@ -65,9 +74,26 @@ export default function WelcomeScreen() {
 
 const MUTED = "rgba(255,255,255,0.5)";
 
+/**
+ * The badge is not in the Figma frame, so these two are our own call: the logo
+ * hangs above the midpoint the copy is anchored to, leaving LOGO_GAP between
+ * its bottom edge and the tagline.
+ */
+const LOGO_SIZE = 120;
+const LOGO_GAP = 36;
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Brand.ink },
   fill: { ...FillParent, opacity: 0.4 },
+  logoWrap: {
+    position: "absolute",
+    top: "50%",
+    left: 0,
+    right: 0,
+    marginTop: -(LOGO_SIZE + LOGO_GAP),
+    alignItems: "center",
+  },
+  logo: { width: LOGO_SIZE, height: LOGO_SIZE, borderRadius: LOGO_SIZE / 2 },
   copy: {
     position: "absolute",
     top: "50%",
