@@ -1,3 +1,4 @@
+import { FillParent } from "@/constants/brand";
 import {
   BRAND_IMAGES,
   PRODUCTS,
@@ -308,7 +309,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   bannerScrim: {
-    ...StyleSheet.absoluteFill,
+    ...FillParent,
     backgroundColor: "rgba(0,0,0,0.45)",
   },
   bannerTextContainer: { paddingRight: 10 },

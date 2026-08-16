@@ -1,4 +1,4 @@
-import { Brand } from "@/constants/brand";
+import { Brand, FillParent } from "@/constants/brand";
 import { BRAND_IMAGES } from "@/constants/catalog";
 import React, { useEffect, useRef } from "react";
 import {
@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  overlay: { ...StyleSheet.absoluteFill, zIndex: 10 },
+  overlay: { ...FillParent, zIndex: 10 },
   burger: { width: SIZE, height: SIZE, borderRadius: SIZE / 2 },
   label: {
     marginTop: 28,

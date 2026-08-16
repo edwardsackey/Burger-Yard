@@ -37,6 +37,22 @@ export const SplashTiming = {
   hold: 700,
 } as const;
 
+/**
+ * Plain-object edge-to-edge fill, for spreading into a StyleSheet entry.
+ *
+ * React Native has no name for this that survives an SDK change: 0.81 types
+ * `StyleSheet.absoluteFill` as an opaque registered style and exposes the
+ * object as `absoluteFillObject`, while 0.86 drops `absoluteFillObject`
+ * entirely. Spelling it out works on both.
+ */
+export const FillParent = {
+  position: "absolute",
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+} as const;
+
 /** Circle geometry, in Figma units on a 390x844 frame. */
 export const SplashGeometry = {
   dot: 50,

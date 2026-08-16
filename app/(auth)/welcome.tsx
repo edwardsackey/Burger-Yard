@@ -1,4 +1,4 @@
-import { Brand } from "@/constants/brand";
+import { Brand, FillParent } from "@/constants/brand";
 import { BRAND_IMAGES } from "@/constants/catalog";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -74,7 +74,7 @@ export default function WelcomeScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Brand.ink },
-  scrim: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.45)" },
+  scrim: { ...FillParent, backgroundColor: "rgba(0,0,0,0.45)" },
   safe: { flex: 1, justifyContent: "space-between" },
   content: {
     flex: 1,
