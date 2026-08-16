@@ -1,4 +1,5 @@
-import { getProduct } from "@/constants/catalog";
+import { BRAND_IMAGES } from "@/constants/catalog";
+import { useNotifications } from "@/store/app-store";
 import { useRouter } from "expo-router";
 import React from "react";
 import {
@@ -13,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function NotificationsScreen() {
   const router = useRouter();
+  const { items, unreadCount, markAllRead } = useNotifications();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -23,48 +25,48 @@ export default function NotificationsScreen() {
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Notifications</Text>
         </View>
-        <TouchableOpacity>
-          <Text style={styles.markRead}>Mark all read</Text>
-        </TouchableOpacity>
+        {unreadCount > 0 && (
+          <TouchableOpacity onPress={markAllRead}>
+            <Text style={styles.markRead}>Mark all read</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
-      <ScrollView contentContainerStyle={styles.list}>
-        <Text style={styles.sectionHeader}>TODAY</Text>
-
-        <View style={styles.notifCard}>
-          <View style={styles.iconBox}>
-            <Image
-              source={getProduct("1").image}
-              style={styles.iconImage}
-              resizeMode="cover"
-            />
-          </View>
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={styles.notifTitle}>Your order is being prepared</Text>
-            <Text style={styles.notifSub}>
-              Order #1042 - Single Cheese Burger (+Bacon), Chicken Burger.
-              Estimated 20 min.
-            </Text>
-            <Text style={styles.time}>12:11 PM</Text>
-          </View>
-          <View style={styles.redDot} />
+      {items.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Image
+            source={BRAND_IMAGES.logo}
+            style={styles.emptyLogo}
+            resizeMode="contain"
+          />
+          <Text style={styles.emptyTitle}>No notifications yet</Text>
+          <Text style={styles.emptySub}>
+            Order updates will show up here once you place your first order.
+          </Text>
         </View>
+      ) : (
+        <ScrollView contentContainerStyle={styles.list}>
+          <Text style={styles.sectionHeader}>TODAY</Text>
 
-        <View style={styles.notifCard}>
-          <View style={styles.iconBox}>
-            <Text>🛵</Text>
-          </View>
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={styles.notifTitle}>Rider is on the way!</Text>
-            <Text style={styles.notifSub}>
-              Order #1040 - Chicken Burger x Fries. Arriving in ~8 min. Show
-              OTP: 4729
-            </Text>
-            <Text style={styles.time}>11:52 AM</Text>
-          </View>
-          <View style={styles.redDot} />
-        </View>
-      </ScrollView>
+          {items.map((item) => (
+            <View key={item.id} style={styles.notifCard}>
+              <View style={styles.iconBox}>
+                <Image
+                  source={BRAND_IMAGES.logo}
+                  style={styles.iconImage}
+                  resizeMode="contain"
+                />
+              </View>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.notifTitle}>{item.title}</Text>
+                <Text style={styles.notifSub}>{item.body}</Text>
+                <Text style={styles.time}>{item.time}</Text>
+              </View>
+              {!item.read && <View style={styles.redDot} />}
+            </View>
+          ))}
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
@@ -108,6 +110,25 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   iconImage: { width: "100%", height: "100%" },
+  emptyContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 40,
+  },
+  emptyLogo: { width: 96, height: 96, borderRadius: 48, marginBottom: 18 },
+  emptyTitle: {
+    fontSize: 17,
+    fontWeight: "bold",
+    color: "#111",
+    marginBottom: 6,
+  },
+  emptySub: {
+    fontSize: 13,
+    color: "#666",
+    textAlign: "center",
+    lineHeight: 19,
+  },
   notifTitle: {
     fontSize: 13,
     fontWeight: "bold",

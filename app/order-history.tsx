@@ -9,9 +9,46 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+type OrderStatus = "Active" | "Completed";
+
+type Order = {
+  id: string;
+  date: string;
+  status: OrderStatus;
+  items: string;
+  total: number;
+};
+
+const ORDERS: Order[] = [
+  {
+    id: "1042",
+    date: "Today, 12:09",
+    status: "Active",
+    items: "2x Single Cheese Burger (+Bacon), Chicken Burger, Coca-Cola",
+    total: 195,
+  },
+  {
+    id: "1037",
+    date: "Yesterday",
+    status: "Completed",
+    items: "Single Cheese Burger, Fries Regular, Coca-Cola",
+    total: 105,
+  },
+  {
+    id: "1031",
+    date: "12 Aug",
+    status: "Completed",
+    items: "Double Cheese Burger, Loaded French Fries",
+    total: 140,
+  },
+];
+
 export default function OrderHistoryScreen() {
   const router = useRouter();
-  const [tab, setTab] = useState("All");
+  const [tab, setTab] = useState<"All" | OrderStatus>("All");
+
+  const visibleOrders =
+    tab === "All" ? ORDERS : ORDERS.filter((o) => o.status === tab);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -24,7 +61,7 @@ export default function OrderHistoryScreen() {
       </View>
 
       <View style={styles.tabsRow}>
-        {["All", "Active", "Completed"].map((t) => (
+        {(["All", "Active", "Completed"] as const).map((t) => (
           <TouchableOpacity
             key={t}
             style={[styles.filterTab, tab === t && styles.activeFilterTab]}
@@ -40,46 +77,51 @@ export default function OrderHistoryScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.list}>
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.orderNo}>Order #1042</Text>
-            <Text style={styles.orderDate}>Today, 12:09</Text>
-            <View style={styles.statusPreparing}>
-              <Text style={styles.statusPrepText}>● Preparing</Text>
+        {visibleOrders.length === 0 ? (
+          <Text style={styles.emptyText}>No {tab.toLowerCase()} orders.</Text>
+        ) : (
+          visibleOrders.map((order) => (
+            <View key={order.id} style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.orderNo}>Order #{order.id}</Text>
+                <Text style={styles.orderDate}>{order.date}</Text>
+                <View
+                  style={
+                    order.status === "Active"
+                      ? styles.statusPreparing
+                      : styles.statusDelivered
+                  }
+                >
+                  <Text
+                    style={
+                      order.status === "Active"
+                        ? styles.statusPrepText
+                        : styles.statusDelText
+                    }
+                  >
+                    {order.status === "Active" ? "● Preparing" : "■ Delivered"}
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.itemsSummary}>{order.items}</Text>
+              <View style={styles.cardFooter}>
+                <Text style={styles.price}>GHS {order.total}</Text>
+                {order.status === "Active" ? (
+                  <TouchableOpacity
+                    style={styles.trackBtn}
+                    onPress={() => router.push("/order-tracking")}
+                  >
+                    <Text style={styles.trackBtnText}>Track order</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity style={styles.reorderBtn}>
+                    <Text style={styles.reorderText}>Reorder</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
-          </View>
-          <Text style={styles.itemsSummary}>
-            2x Single Cheese Burger (+Bacon), Chicken Burger, Coca-Cola
-          </Text>
-          <View style={styles.cardFooter}>
-            <Text style={styles.price}>GHS 195</Text>
-            <TouchableOpacity
-              style={styles.trackBtn}
-              onPress={() => router.push("/order-tracking")}
-            >
-              <Text style={styles.trackBtnText}>Track order</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.orderNo}>Order #1037</Text>
-            <Text style={styles.orderDate}>Yesterday</Text>
-            <View style={styles.statusDelivered}>
-              <Text style={styles.statusDelText}>■ Delivered</Text>
-            </View>
-          </View>
-          <Text style={styles.itemsSummary}>
-            Single Cheese Burger, Fries Regular, Coca-Cola
-          </Text>
-          <View style={styles.cardFooter}>
-            <Text style={styles.price}>GHS 105</Text>
-            <TouchableOpacity style={styles.reorderBtn}>
-              <Text style={styles.reorderText}>Reorder</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+          ))
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -111,6 +153,12 @@ const styles = StyleSheet.create({
   filterText: { fontSize: 13, fontWeight: "600", color: "#444" },
   activeFilterText: { color: "#FFF" },
   list: { padding: 20, gap: 14 },
+  emptyText: {
+    fontSize: 13,
+    color: "#666",
+    textAlign: "center",
+    marginTop: 40,
+  },
   card: {
     backgroundColor: "#FFF",
     borderRadius: 16,

@@ -1,8 +1,8 @@
 import { PRODUCTS, formatPrice } from "@/constants/catalog";
+import { useCart } from "@/store/app-store";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-  Alert,
   Image,
   ScrollView,
   StyleSheet,
@@ -15,17 +15,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export default function MenuScreen() {
   const router = useRouter();
   const [selectedCategory, setSelectedCategory] = useState("All");
-  const [cartCount, setCartCount] = useState(2);
+  const { itemCount, addItem } = useCart();
 
   const filteredItems =
     selectedCategory === "All"
       ? PRODUCTS
       : PRODUCTS.filter((item) => item.category === selectedCategory);
-
-  const handleAddToCart = (itemName: string) => {
-    setCartCount((prev) => prev + 1);
-    Alert.alert("Added to Cart", `${itemName} has been added to your order!`);
-  };
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -37,9 +32,9 @@ export default function MenuScreen() {
           onPress={() => router.push("/(tabs)/cart")}
         >
           <Text style={styles.cartIcon}>🛒</Text>
-          {cartCount > 0 && (
+          {itemCount > 0 && (
             <View style={styles.badge}>
-              <Text style={styles.badgeText}>{cartCount}</Text>
+              <Text style={styles.badgeText}>{itemCount}</Text>
             </View>
           )}
         </TouchableOpacity>
@@ -88,7 +83,7 @@ export default function MenuScreen() {
               <Image
                 source={item.image}
                 style={styles.thumb}
-                resizeMode="cover"
+                resizeMode={item.fit}
               />
             </TouchableOpacity>
 
@@ -106,7 +101,7 @@ export default function MenuScreen() {
                 <Text style={styles.itemPrice}>{formatPrice(item.price)}</Text>
                 <TouchableOpacity
                   style={styles.addBtn}
-                  onPress={() => handleAddToCart(item.name)}
+                  onPress={() => addItem(item.id)}
                 >
                   <Text style={styles.addBtnText}>+</Text>
                 </TouchableOpacity>
@@ -189,7 +184,8 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 12,
-    backgroundColor: "#F9FAFB",
+    // white, so letterboxed packshots blend into their own backdrop
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "#E5E7EB",
     overflow: "hidden",

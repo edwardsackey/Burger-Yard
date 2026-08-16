@@ -32,7 +32,7 @@ export default function TabLayout() {
     >
       <Tabs.Screen
         name="home"
-        options={{ title: "Home", tabBarIcon: tabIcon("🏠") }}
+        options={{ title: "Home", tabBarIcon: tabIcon("🍽️") }}
       />
       <Tabs.Screen
         name="menu"

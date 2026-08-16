@@ -1,6 +1,7 @@
 import { getProduct } from "@/constants/catalog";
+import { useCart } from "@/store/app-store";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React from "react";
 import {
   Image,
   ScrollView,
@@ -13,60 +14,22 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function CartScreen() {
   const router = useRouter();
-
-  // Cart items state with quantities
-  const [cartItems, setCartItems] = useState([
-    {
-      id: "1",
-      name: "Single Cheese Burger",
-      modifiers: "+ Bacon",
-      price: 70,
-      quantity: 2,
-    },
-    {
-      id: "3",
-      name: "Crispy Chicken Burger",
-      modifiers: "Standard",
-      price: 85,
-      quantity: 1,
-    },
-  ]);
-
-  const updateQuantity = (id: string, delta: number) => {
-    setCartItems(
-      (prev) =>
-        prev
-          .map((item) => {
-            if (item.id === id) {
-              const newQty = item.quantity + delta;
-              return newQty > 0 ? { ...item, quantity: newQty } : null;
-            }
-            return item;
-          })
-          .filter(Boolean) as typeof cartItems,
-    );
-  };
-
-  const subtotal = cartItems.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0,
-  );
-  const deliveryFee = subtotal > 0 ? 25 : 0;
-  const total = subtotal + deliveryFee;
+  const { lines, subtotal, deliveryFee, total, changeQuantity, clear } =
+    useCart();
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Your Cart</Text>
-        {cartItems.length > 0 && (
-          <TouchableOpacity onPress={() => setCartItems([])}>
+        {lines.length > 0 && (
+          <TouchableOpacity onPress={clear}>
             <Text style={styles.clearText}>Clear all</Text>
           </TouchableOpacity>
         )}
       </View>
 
-      {cartItems.length === 0 ? (
+      {lines.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyEmoji}>🛒</Text>
           <Text style={styles.emptyTitle}>Your cart is empty</Text>
@@ -88,41 +51,48 @@ export default function CartScreen() {
           >
             {/* Items List */}
             <View style={styles.list}>
-              {cartItems.map((item) => (
-                <View key={item.id} style={styles.card}>
-                  <View style={styles.thumbBox}>
-                    <Image
-                      source={getProduct(item.id).image}
-                      style={styles.thumb}
-                      resizeMode="cover"
-                    />
-                  </View>
+              {lines.map((line) => {
+                const product = getProduct(line.productId);
+                return (
+                  <View key={line.key} style={styles.card}>
+                    <View style={styles.thumbBox}>
+                      <Image
+                        source={product.image}
+                        style={styles.thumb}
+                        resizeMode={product.fit}
+                      />
+                    </View>
 
-                  <View style={styles.cardInfo}>
-                    <Text style={styles.itemName}>{item.name}</Text>
-                    <Text style={styles.itemModifiers}>{item.modifiers}</Text>
-                    <Text style={styles.itemPrice}>
-                      GHS {item.price * item.quantity}
-                    </Text>
-                  </View>
+                    <View style={styles.cardInfo}>
+                      <Text style={styles.itemName}>{line.name}</Text>
+                      <Text style={styles.itemModifiers}>
+                        {line.extras.length
+                          ? `+ ${line.extras.join(", ")}`
+                          : "Standard"}
+                      </Text>
+                      <Text style={styles.itemPrice}>
+                        GHS {line.unitPrice * line.quantity}
+                      </Text>
+                    </View>
 
-                  <View style={styles.qtyControl}>
-                    <TouchableOpacity
-                      style={styles.qtyBtn}
-                      onPress={() => updateQuantity(item.id, -1)}
-                    >
-                      <Text style={styles.qtyBtnText}>-</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.qtyText}>{item.quantity}</Text>
-                    <TouchableOpacity
-                      style={styles.qtyBtn}
-                      onPress={() => updateQuantity(item.id, 1)}
-                    >
-                      <Text style={styles.qtyBtnText}>+</Text>
-                    </TouchableOpacity>
+                    <View style={styles.qtyControl}>
+                      <TouchableOpacity
+                        style={styles.qtyBtn}
+                        onPress={() => changeQuantity(line.key, -1)}
+                      >
+                        <Text style={styles.qtyBtnText}>-</Text>
+                      </TouchableOpacity>
+                      <Text style={styles.qtyText}>{line.quantity}</Text>
+                      <TouchableOpacity
+                        style={styles.qtyBtn}
+                        onPress={() => changeQuantity(line.key, 1)}
+                      >
+                        <Text style={styles.qtyBtnText}>+</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
 
             {/* Promo Code Box */}
@@ -195,7 +165,8 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 12,
-    backgroundColor: "#F9FAFB",
+    // white, so the letterboxed packshots blend into their own backdrop
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "#E5E7EB",
     overflow: "hidden",

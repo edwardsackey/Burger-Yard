@@ -1,4 +1,5 @@
 import { LoadingScreen } from "@/components/loading-screen";
+import { useCart, useNotifications } from "@/store/app-store";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -14,11 +15,22 @@ export default function CheckoutScreen() {
   const router = useRouter();
   const [payment, setPayment] = useState("momo");
   const [placing, setPlacing] = useState(false);
+  const { lines, total, clear } = useCart();
+  const { notify } = useNotifications();
 
   const handlePlaceOrder = () => {
+    const summary = lines
+      .map((l) => (l.quantity > 1 ? `${l.quantity}x ${l.name}` : l.name))
+      .join(", ");
+
     setPlacing(true);
     setTimeout(() => {
       setPlacing(false);
+      notify(
+        "Your order is being prepared",
+        `${summary || "Your order"}. Estimated 20 min.`,
+      );
+      clear();
       router.push("/order-placed");
     }, 1800);
   };
@@ -115,7 +127,7 @@ export default function CheckoutScreen() {
           style={styles.orderBtn}
           onPress={handlePlaceOrder}
         >
-          <Text style={styles.orderBtnText}>Place order • GHS 195</Text>
+          <Text style={styles.orderBtnText}>Place order • GHS {total}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

@@ -1,14 +1,10 @@
 import { FillParent } from "@/constants/brand";
-import {
-  BRAND_IMAGES,
-  PRODUCTS,
-  PROMO_IMAGES,
-  formatPrice,
-} from "@/constants/catalog";
+import { BRAND_IMAGES, PRODUCTS, formatPrice } from "@/constants/catalog";
+import { PromoSlider } from "@/components/promo-slider";
+import { useCart, useNotifications } from "@/store/app-store";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-  Alert,
   Image,
   ScrollView,
   StyleSheet,
@@ -21,17 +17,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export default function HomeScreen() {
   const router = useRouter();
   const [activeCategory, setActiveCategory] = useState("All");
-  const [cartCount, setCartCount] = useState(2); // Simulated cart items count
+  const { itemCount, addItem } = useCart();
+  const { unreadCount } = useNotifications();
 
   const filteredItems =
     activeCategory === "All"
       ? PRODUCTS
       : PRODUCTS.filter((item) => item.category === activeCategory);
-
-  const handleAddToCart = (itemName: string) => {
-    setCartCount((prev) => prev + 1);
-    Alert.alert("Added to Cart", `${itemName} has been added to your cart!`);
-  };
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -54,7 +46,7 @@ export default function HomeScreen() {
             onPress={() => router.push("/notifications")}
           >
             <Text style={styles.iconEmoji}>🔔</Text>
-            <View style={styles.notifBadge} />
+            {unreadCount > 0 && <View style={styles.notifBadge} />}
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -62,9 +54,9 @@ export default function HomeScreen() {
             onPress={() => router.push("/(tabs)/cart")}
           >
             <Text style={styles.iconEmoji}>🛒</Text>
-            {cartCount > 0 && (
+            {itemCount > 0 && (
               <View style={styles.cartBadge}>
-                <Text style={styles.cartBadgeText}>{cartCount}</Text>
+                <Text style={styles.cartBadgeText}>{itemCount}</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -148,27 +140,8 @@ export default function HomeScreen() {
           ))}
         </ScrollView>
 
-        {/* Promo posters, shown whole so their own artwork reads */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.promoRow}
-        >
-          {[PROMO_IMAGES.hunger, PROMO_IMAGES.bite].map((art, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.promoCard}
-              activeOpacity={0.9}
-              onPress={() => router.push("/(tabs)/menu")}
-            >
-              <Image
-                source={art}
-                style={styles.promoImage}
-                resizeMode="cover"
-              />
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        {/* One promo card, cross-fading between the flyers */}
+        <PromoSlider onPress={() => router.push("/(tabs)/menu")} />
 
         {/* Section Title */}
         <View style={styles.sectionHeader}>
@@ -191,7 +164,7 @@ export default function HomeScreen() {
                 <Image
                   source={item.image}
                   style={styles.cardImage}
-                  resizeMode="cover"
+                  resizeMode={item.fit}
                 />
                 <View style={styles.ratingBadge}>
                   <Text style={styles.ratingText}>★ {item.rating}</Text>
@@ -212,7 +185,7 @@ export default function HomeScreen() {
                   <Text style={styles.itemPrice}>{formatPrice(item.price)}</Text>
                   <TouchableOpacity
                     style={styles.addBtn}
-                    onPress={() => handleAddToCart(item.name)}
+                    onPress={() => addItem(item.id)}
                   >
                     <Text style={styles.addBtnText}>+</Text>
                   </TouchableOpacity>
@@ -359,15 +332,6 @@ const styles = StyleSheet.create({
   categoryPillActive: { backgroundColor: "#D62828", borderColor: "#D62828" },
   categoryText: { fontSize: 13, fontWeight: "600", color: "#444" },
   categoryTextActive: { color: "#FFF" },
-  promoRow: { gap: 12, marginBottom: 20 },
-  promoCard: {
-    width: 210,
-    height: 196,
-    borderRadius: 16,
-    overflow: "hidden",
-    backgroundColor: "#FFF",
-  },
-  promoImage: { width: "100%", height: "100%" },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -394,8 +358,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   cardImageContainer: {
-    height: 110,
-    backgroundColor: "#F9FAFB",
+    height: 120,
+    // white, so letterboxed packshots blend into their own backdrop
+    backgroundColor: "#FFFFFF",
     justifyContent: "center",
     alignItems: "center",
     position: "relative",

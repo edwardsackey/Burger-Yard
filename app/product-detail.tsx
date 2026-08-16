@@ -1,4 +1,5 @@
-import { formatPrice, getProduct } from "@/constants/catalog";
+import { EXTRAS, formatPrice, getProduct } from "@/constants/catalog";
+import { useCart } from "@/store/app-store";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -11,20 +12,13 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const EXTRAS = [
-  { name: "Bacon", price: 15 },
-  { name: "Sausage", price: 8 },
-  { name: "Extra Egg", price: 8 },
-  { name: "Extra Cheese", price: 15 },
-  { name: "Extra Patty", price: 25 },
-  { name: "Coca-Cola", price: 10 },
-];
-
 export default function ProductDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const product = getProduct(id ?? "1");
-  const [selected, setSelected] = useState<string[]>(["Bacon"]);
+  const { addItem } = useCart();
+  // Nothing is pre-selected; extras are opt-in.
+  const [selected, setSelected] = useState<string[]>([]);
   const [favourite, setFavourite] = useState(false);
 
   const toggleExtra = (name: string) =>
@@ -59,7 +53,7 @@ export default function ProductDetailScreen() {
         <Image
           source={product.image}
           style={styles.heroImage}
-          resizeMode="cover"
+          resizeMode={product.fit}
         />
       </View>
 
@@ -97,7 +91,10 @@ export default function ProductDetailScreen() {
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.addToCartBtn}
-          onPress={() => router.back()}
+          onPress={() => {
+            addItem(product.id, selected);
+            router.back();
+          }}
         >
           <Text style={styles.addToCartText}>
             Add to cart • {formatPrice(total)}
@@ -132,7 +129,8 @@ const styles = StyleSheet.create({
   btnText: { fontSize: 16, fontWeight: "bold" },
   heroImageContainer: {
     height: 240,
-    backgroundColor: "#F3F4F6",
+    // white, so letterboxed packshots blend into their own backdrop
+    backgroundColor: "#FFFFFF",
     marginTop: -48,
     overflow: "hidden",
   },

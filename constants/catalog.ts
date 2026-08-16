@@ -11,6 +11,12 @@ export type Product = {
   rating: string;
   desc: string;
   image: ImageSourcePropType;
+  /**
+   * How the photo should sit in a frame. The plated shots fill the frame, but
+   * the packshots are a single object floating on white - cropping those cuts
+   * the bottle off, so they are letterboxed instead.
+   */
+  fit: "cover" | "contain";
 };
 
 export const CATEGORIES: Category[] = ["Burgers", "Sides", "Drinks"];
@@ -24,6 +30,7 @@ export const PRODUCTS: Product[] = [
     rating: "4.8",
     desc: "Beef patty, cheddar, lettuce, onions & yard sauce",
     image: require("@/assets/images/products/single-cheese-burger.jpg"),
+    fit: "cover",
   },
   {
     id: "2",
@@ -33,6 +40,7 @@ export const PRODUCTS: Product[] = [
     rating: "4.9",
     desc: "Double beef patties, double cheese, caramelized onions",
     image: require("@/assets/images/products/double-cheese-burger.jpg"),
+    fit: "cover",
   },
   {
     id: "3",
@@ -42,6 +50,7 @@ export const PRODUCTS: Product[] = [
     rating: "4.7",
     desc: "Crunchy fried chicken fillet, coleslaw & spicy mayo",
     image: require("@/assets/images/products/crispy-chicken-burger.jpg"),
+    fit: "cover",
   },
   {
     id: "4",
@@ -51,6 +60,7 @@ export const PRODUCTS: Product[] = [
     rating: "4.6",
     desc: "Crispy golden fries topped with melted cheese and bits",
     image: require("@/assets/images/products/loaded-fries.jpg"),
+    fit: "contain",
   },
   {
     id: "5",
@@ -60,6 +70,7 @@ export const PRODUCTS: Product[] = [
     rating: "4.7",
     desc: "Grilled chicken, crunchy veg & garlic sauce in warm pita",
     image: require("@/assets/images/products/shawarma.jpg"),
+    fit: "contain",
   },
   {
     id: "6",
@@ -69,6 +80,7 @@ export const PRODUCTS: Product[] = [
     rating: "4.9",
     desc: "Chilled 500ml PET bottle",
     image: require("@/assets/images/products/coca-cola.jpg"),
+    fit: "contain",
   },
   {
     id: "7",
@@ -78,6 +90,7 @@ export const PRODUCTS: Product[] = [
     rating: "4.8",
     desc: "Chilled 300ml refreshing soda",
     image: require("@/assets/images/products/fanta.jpg"),
+    fit: "contain",
   },
   {
     id: "8",
@@ -87,8 +100,23 @@ export const PRODUCTS: Product[] = [
     rating: "4.6",
     desc: "Pineapple, apple & grape blend, served ice cold",
     image: require("@/assets/images/products/bb-cocktail.jpg"),
+    fit: "contain",
   },
 ];
+
+/** Optional add-ons offered on the product detail screen, in GHS. */
+export const EXTRAS: { name: string; price: number }[] = [
+  { name: "Bacon", price: 15 },
+  { name: "Sausage", price: 8 },
+  { name: "Extra Egg", price: 8 },
+  { name: "Extra Cheese", price: 15 },
+  { name: "Extra Patty", price: 25 },
+  { name: "Coca-Cola", price: 10 },
+];
+
+export const EXTRAS_PRICES: Record<string, number> = Object.fromEntries(
+  EXTRAS.map((e) => [e.name, e.price]),
+);
 
 /** Marketing artwork used by the home banner and promo rail. */
 export const PROMO_IMAGES = {
