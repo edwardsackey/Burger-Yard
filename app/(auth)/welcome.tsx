@@ -2,8 +2,21 @@ import { Brand, FillParent } from "@/constants/brand";
 import { BRAND_IMAGES } from "@/constants/catalog";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React from "react";
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useRef } from "react";
+import {
+  Animated,
+  Easing,
+  Image,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  useWindowDimensions,
+} from "react-native";
+
+// react-native-web has no native animated module; asking for it only warns.
+const USE_NATIVE_DRIVER = Platform.OS !== "web";
 
 /**
  * Frame 5 (node 12:37) - the screen where you choose to sign up or sign in.
@@ -16,6 +29,45 @@ import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
  */
 export default function WelcomeScreen() {
   const router = useRouter();
+  const { height } = useWindowDimensions();
+  const drop = useRef(new Animated.Value(0)).current;
+
+  // The badge falls in from above the screen and settles after three contacts:
+  // the landing itself, then two shrinking rebounds. Falls accelerate and
+  // rebounds decelerate, which is what sells it as weight rather than a slide.
+  useEffect(() => {
+    const restTop = height / 2 - (LOGO_SIZE + LOGO_GAP);
+    const startY = -(restTop + LOGO_SIZE + 24);
+
+    drop.setValue(startY);
+
+    const fall = (duration: number) =>
+      Animated.timing(drop, {
+        toValue: 0,
+        duration,
+        easing: Easing.in(Easing.quad),
+        useNativeDriver: USE_NATIVE_DRIVER,
+      });
+
+    const rebound = (toValue: number, duration: number) =>
+      Animated.timing(drop, {
+        toValue,
+        duration,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: USE_NATIVE_DRIVER,
+      });
+
+    const sequence = Animated.sequence([
+      fall(620), // contact 1
+      rebound(-70, 290),
+      fall(290), // contact 2
+      rebound(-26, 190),
+      fall(190), // contact 3, then static
+    ]);
+
+    sequence.start();
+    return () => sequence.stop();
+  }, [drop, height]);
 
   return (
     <View style={styles.root}>
@@ -28,13 +80,15 @@ export default function WelcomeScreen() {
       />
 
       {/* Sits above the copy block, bottom edge LOGO_GAP clear of the midpoint */}
-      <View style={styles.logoWrap}>
+      <Animated.View
+        style={[styles.logoWrap, { transform: [{ translateY: drop }] }]}
+      >
         <Image
           source={BRAND_IMAGES.logo}
           style={styles.logo}
           resizeMode="contain"
         />
-      </View>
+      </Animated.View>
 
       {/* Anchored to the vertical midpoint, matching top=422 on the 844 frame */}
       <View style={styles.copy}>
@@ -72,14 +126,14 @@ export default function WelcomeScreen() {
   );
 }
 
-const MUTED = "rgba(255,255,255,0.5)";
+const MUTED = "rgba(255,255,255,0.85)";
 
 /**
  * The badge is not in the Figma frame, so these two are our own call: the logo
  * hangs above the midpoint the copy is anchored to, leaving LOGO_GAP between
  * its bottom edge and the tagline.
  */
-const LOGO_SIZE = 120;
+const LOGO_SIZE = 148;
 const LOGO_GAP = 36;
 
 const styles = StyleSheet.create({
