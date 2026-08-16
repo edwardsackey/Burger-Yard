@@ -185,6 +185,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingRight: 10,
   },
-  chevron: { fontSize: 18, fontWeight: "bold", color: "#DA291C" },
+  chevron: { fontSize: 18, fontWeight: "bold", color: "#D62828" },
   faqAText: { fontSize: 13, color: "#555", marginTop: 10, lineHeight: 18 },
 });

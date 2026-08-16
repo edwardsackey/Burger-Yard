@@ -1,6 +1,8 @@
+import { getProduct } from "@/constants/catalog";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,7 +22,6 @@ export default function CartScreen() {
       modifiers: "+ Bacon",
       price: 70,
       quantity: 2,
-      emoji: "🍔",
     },
     {
       id: "3",
@@ -28,7 +29,6 @@ export default function CartScreen() {
       modifiers: "Standard",
       price: 85,
       quantity: 1,
-      emoji: "🍗",
     },
   ]);
 
@@ -71,7 +71,7 @@ export default function CartScreen() {
           <Text style={styles.emptyEmoji}>🛒</Text>
           <Text style={styles.emptyTitle}>Your cart is empty</Text>
           <Text style={styles.emptySub}>
-            Looks like you haven't added any burgers to your yard yet.
+            Looks like you haven&apos;t added any burgers to your yard yet.
           </Text>
           <TouchableOpacity
             style={styles.exploreBtn}
@@ -90,8 +90,12 @@ export default function CartScreen() {
             <View style={styles.list}>
               {cartItems.map((item) => (
                 <View key={item.id} style={styles.card}>
-                  <View style={styles.emojiBox}>
-                    <Text style={styles.emoji}>{item.emoji}</Text>
+                  <View style={styles.thumbBox}>
+                    <Image
+                      source={getProduct(item.id).image}
+                      style={styles.thumb}
+                      resizeMode="cover"
+                    />
                   </View>
 
                   <View style={styles.cardInfo}>
@@ -175,7 +179,7 @@ const styles = StyleSheet.create({
     borderBottomColor: "#F3F4F6",
   },
   headerTitle: { fontSize: 20, fontWeight: "bold", color: "#111" },
-  clearText: { fontSize: 13, fontWeight: "bold", color: "#DA291C" },
+  clearText: { fontSize: 13, fontWeight: "bold", color: "#D62828" },
   scrollContent: { padding: 20, paddingBottom: 100 },
   list: { gap: 12, marginBottom: 20 },
   card: {
@@ -187,17 +191,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E5E7EB",
   },
-  emojiBox: {
+  thumbBox: {
     width: 56,
     height: 56,
     borderRadius: 12,
     backgroundColor: "#F9FAFB",
-    justifyContent: "center",
-    alignItems: "center",
     borderWidth: 1,
     borderColor: "#E5E7EB",
+    overflow: "hidden",
   },
-  emoji: { fontSize: 28 },
+  thumb: { width: "100%", height: "100%" },
   cardInfo: { flex: 1, marginLeft: 12 },
   itemName: {
     fontSize: 14,
@@ -206,7 +209,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   itemModifiers: { fontSize: 11, color: "#666", marginBottom: 4 },
-  itemPrice: { fontSize: 14, fontWeight: "bold", color: "#DA291C" },
+  itemPrice: { fontSize: 14, fontWeight: "bold", color: "#D62828" },
   qtyControl: {
     flexDirection: "row",
     alignItems: "center",
@@ -245,7 +248,7 @@ const styles = StyleSheet.create({
   promoText: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#DA291C",
+    color: "#D62828",
     textAlign: "center",
   },
   summaryCard: {
@@ -266,7 +269,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   totalLabel: { fontSize: 15, fontWeight: "bold", color: "#111" },
-  totalVal: { fontSize: 16, fontWeight: "bold", color: "#DA291C" },
+  totalVal: { fontSize: 16, fontWeight: "bold", color: "#D62828" },
   footer: {
     position: "absolute",
     bottom: 0,
@@ -278,7 +281,7 @@ const styles = StyleSheet.create({
     borderTopColor: "#E5E7EB",
   },
   checkoutBtn: {
-    backgroundColor: "#DA291C",
+    backgroundColor: "#D62828",
     borderRadius: 24,
     height: 50,
     justifyContent: "center",
@@ -306,7 +309,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   exploreBtn: {
-    backgroundColor: "#DA291C",
+    backgroundColor: "#D62828",
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 24,

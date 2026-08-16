@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E5E7EB",
   },
-  cardActive: { borderColor: "#DA291C", borderWidth: 1.5 },
+  cardActive: { borderColor: "#D62828", borderWidth: 1.5 },
   cardTop: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 4,
   },
-  defaultText: { fontSize: 9, fontWeight: "bold", color: "#DA291C" },
+  defaultText: { fontSize: 9, fontWeight: "bold", color: "#D62828" },
   addressSub: { fontSize: 13, color: "#666", marginBottom: 12 },
   cardActions: {
     flexDirection: "row",
@@ -109,11 +109,11 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   actionBtn: { paddingVertical: 4 },
-  actionText: { fontSize: 12, fontWeight: "bold", color: "#DA291C" },
+  actionText: { fontSize: 12, fontWeight: "bold", color: "#D62828" },
   deleteText: { fontSize: 12, fontWeight: "bold", color: "#9CA3AF" },
   addBtn: {
     borderWidth: 1.5,
-    borderColor: "#DA291C",
+    borderColor: "#D62828",
     borderStyle: "dashed",
     borderRadius: 16,
     height: 50,
@@ -122,5 +122,5 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     marginTop: 10,
   },
-  addBtnText: { color: "#DA291C", fontSize: 14, fontWeight: "bold" },
+  addBtnText: { color: "#D62828", fontSize: 14, fontWeight: "bold" },
 });

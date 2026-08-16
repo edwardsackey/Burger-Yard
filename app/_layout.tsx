@@ -4,6 +4,8 @@ import React from "react";
 export default function RootLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
+      {/* Animated brand intro, the entry point of the app */}
+      <Stack.Screen name="index" options={{ animation: "none" }} />
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="product-detail" />

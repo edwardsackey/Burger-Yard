@@ -1,6 +1,8 @@
+import { getProduct } from "@/constants/catalog";
 import { useRouter } from "expo-router";
 import React from "react";
 import {
+    Image,
     SafeAreaView,
     ScrollView,
     StyleSheet,
@@ -31,7 +33,11 @@ export default function NotificationsScreen() {
 
         <View style={styles.notifCard}>
           <View style={styles.iconBox}>
-            <Text>🍔</Text>
+            <Image
+              source={getProduct("1").image}
+              style={styles.iconImage}
+              resizeMode="cover"
+            />
           </View>
           <View style={{ flex: 1, marginLeft: 12 }}>
             <Text style={styles.notifTitle}>Your order is being prepared</Text>
@@ -73,7 +79,7 @@ const styles = StyleSheet.create({
   },
   backText: { fontSize: 22, fontWeight: "bold" },
   headerTitle: { fontSize: 18, fontWeight: "bold", color: "#111" },
-  markRead: { fontSize: 13, fontWeight: "bold", color: "#DA291C" },
+  markRead: { fontSize: 13, fontWeight: "bold", color: "#D62828" },
   list: { padding: 20 },
   sectionHeader: {
     fontSize: 11,
@@ -99,7 +105,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#F3F4F6",
     justifyContent: "center",
     alignItems: "center",
+    overflow: "hidden",
   },
+  iconImage: { width: "100%", height: "100%" },
   notifTitle: {
     fontSize: 13,
     fontWeight: "bold",
@@ -112,7 +120,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#DA291C",
+    backgroundColor: "#D62828",
     marginLeft: 8,
     marginTop: 4,
   },

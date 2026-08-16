@@ -152,14 +152,14 @@ const styles = StyleSheet.create({
   price: { fontSize: 15, fontWeight: "bold", color: "#111" },
   trackBtn: {
     borderWidth: 1,
-    borderColor: "#DA291C",
+    borderColor: "#D62828",
     paddingHorizontal: 16,
     paddingVertical: 6,
     borderRadius: 16,
   },
-  trackBtnText: { fontSize: 12, fontWeight: "bold", color: "#DA291C" },
+  trackBtnText: { fontSize: 12, fontWeight: "bold", color: "#D62828" },
   reorderBtn: {
-    backgroundColor: "#DA291C",
+    backgroundColor: "#D62828",
     paddingHorizontal: 16,
     paddingVertical: 6,
     borderRadius: 16,

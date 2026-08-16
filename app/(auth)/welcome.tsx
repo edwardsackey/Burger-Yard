@@ -1,120 +1,132 @@
+import { Brand } from "@/constants/brand";
+import { BRAND_IMAGES } from "@/constants/catalog";
 import { useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import React from "react";
 import {
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
+/**
+ * Frame 5 of the new auth flow: the hero burger fills the frame, dimmed, with
+ * the brand lockup and the two entry actions on top.
+ *
+ * Per the Figma note, only the frame fill is dimmed - the text and buttons keep
+ * full opacity, so the image sits in its own layer with a scrim above it rather
+ * than the whole screen carrying an opacity.
+ */
 export default function WelcomeScreen() {
   const router = useRouter();
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        {/* Logo / Brand Icon */}
-        <View style={styles.logoContainer}>
-          <Text style={styles.logoEmoji}>🍔</Text>
+    <View style={styles.root}>
+      <StatusBar style="light" />
+
+      {/* Frame fill */}
+      <Image
+        source={BRAND_IMAGES.hero}
+        style={StyleSheet.absoluteFill}
+        resizeMode="cover"
+      />
+      <View style={styles.scrim} />
+
+      {/* Content, at full opacity */}
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.content}>
+          <Text style={styles.brandTitle}>THE BURGER YARD</Text>
+          <Text style={styles.tagline}>DON&apos;T BE SHY, TAKE A BITE</Text>
+          <Text style={styles.description}>
+            Order your favourite burgers,{"\n"}pay with MoMo, and track{"\n"}your
+            delivery in real time.
+          </Text>
         </View>
 
-        <Text style={styles.brandTitle}>THE BURGER YARD</Text>
-        <Text style={styles.tagline}>DON'T BE SHY, TAKE A BITE</Text>
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={styles.primaryButton}
+            activeOpacity={0.85}
+            onPress={() => router.push("/(auth)/signup")}
+          >
+            <Text style={styles.primaryButtonText}>Create account</Text>
+          </TouchableOpacity>
 
-        <Text style={styles.description}>
-          Order your favourite burgers, pay with MoMo, and track your delivery
-          in real time.
-        </Text>
-      </View>
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            activeOpacity={0.85}
+            onPress={() => router.push("/(auth)/signin")}
+          >
+            <Text style={styles.secondaryButtonText}>Sign in</Text>
+          </TouchableOpacity>
 
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={styles.primaryButton}
-          onPress={() => router.push("/(auth)/signup")}
-        >
-          <Text style={styles.primaryButtonText}>Create account</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.secondaryButton}
-          onPress={() => router.push("/(auth)/signin")}
-        >
-          <Text style={styles.secondaryButtonText}>Sign in</Text>
-        </TouchableOpacity>
-
-        <Text style={styles.termsText}>
-          By continuing you agree to our Terms & Privacy Policy
-        </Text>
-      </View>
-    </SafeAreaView>
+          <Text style={styles.termsText}>
+            By continuing you agree to our Terms &amp; Privacy Policy
+          </Text>
+        </View>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-    justifyContent: "space-between",
-    padding: 24,
-  },
+  root: { flex: 1, backgroundColor: Brand.ink },
+  scrim: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.45)" },
+  safe: { flex: 1, justifyContent: "space-between" },
   content: {
     flex: 1,
-    justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 10,
-  },
-  logoContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "#DA291C",
     justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 20,
+    paddingHorizontal: 24,
   },
-  logoEmoji: { fontSize: 36 },
   brandTitle: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: "#111",
-    letterSpacing: 1,
-    marginBottom: 8,
+    fontSize: 30,
+    fontWeight: "800",
+    color: Brand.white,
+    letterSpacing: 0.4,
+    textAlign: "center",
+    marginBottom: 14,
   },
   tagline: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#666",
-    letterSpacing: 0.5,
-    marginBottom: 20,
+    fontSize: 12,
+    fontWeight: "700",
+    color: Brand.white,
+    letterSpacing: 1.1,
+    textAlign: "center",
+    marginBottom: 22,
   },
   description: {
     textAlign: "center",
-    color: "#777",
-    fontSize: 13,
-    lineHeight: 20,
-    paddingHorizontal: 20,
+    color: "#F1F1F1",
+    fontSize: 15,
+    lineHeight: 24,
   },
-  footer: { width: "100%", paddingBottom: 20 },
+  footer: { paddingHorizontal: 20, paddingBottom: 18 },
   primaryButton: {
-    backgroundColor: "#DA291C",
-    borderRadius: 24,
-    height: 48,
+    backgroundColor: Brand.red,
+    borderRadius: 14,
+    height: 56,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 12,
   },
-  primaryButtonText: { color: "#FFFFFF", fontSize: 15, fontWeight: "bold" },
+  primaryButtonText: { color: Brand.white, fontSize: 16, fontWeight: "700" },
   secondaryButton: {
-    backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 24,
-    height: 48,
+    borderColor: "rgba(255,255,255,0.55)",
+    borderRadius: 14,
+    height: 56,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 18,
   },
-  secondaryButtonText: { color: "#111", fontSize: 15, fontWeight: "bold" },
-  termsText: { textAlign: "center", fontSize: 10, color: "#999" },
+  secondaryButtonText: { color: Brand.white, fontSize: 16, fontWeight: "600" },
+  termsText: {
+    textAlign: "center",
+    fontSize: 11,
+    color: "rgba(255,255,255,0.7)",
+  },
 });

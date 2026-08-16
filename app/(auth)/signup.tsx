@@ -1,7 +1,12 @@
+import { LoadingOverlay } from "@/components/loading-screen";
+import { Brand } from "@/constants/brand";
 import { useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
 import {
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
@@ -10,150 +15,170 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+/** SCR/Sign Up (node 2:1425). */
 export default function SignUpScreen() {
   const router = useRouter();
   const [fullName, setFullName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [sending, setSending] = useState(false);
 
   const handleSendCode = () => {
     if (!fullName.trim() || !phoneNumber.trim()) {
       Alert.alert(
-        "Missing Details",
+        "Missing details",
         "Please enter both your full name and phone number.",
       );
       return;
     }
 
-    // Simulate sending verification code SMS to the phone number
-    Alert.alert(
-      "Verification Code Sent",
-      `A 4-digit code has been sent via SMS to ${phoneNumber}`,
-      [
-        {
-          text: "Continue",
-          onPress: () => router.push("/(auth)/otp"),
-        },
-      ],
-    );
+    setSending(true);
+    setTimeout(() => {
+      setSending(false);
+      router.push("/(auth)/otp");
+    }, 1400);
   };
 
+  if (sending) return <LoadingOverlay label="Sending your code" />;
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+      <StatusBar style="dark" />
+
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Create Account</Text>
-        <View style={{ width: 24 }} />
+        <Text style={styles.headerTitle}>Sign up</Text>
       </View>
 
-      <View style={styles.content}>
-        <View style={styles.titleBox}>
-          <Text style={styles.title}>Join The Burger Yard 🍔</Text>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <View style={styles.content}>
+          <Text style={styles.title}>Create your account</Text>
           <Text style={styles.subtitle}>
-            Enter your details to get started with fast gourmet deliveries.
+            Enter your phone number and we&apos;ll send you a one-time code to
+            verify.
+          </Text>
+
+          <Text style={styles.label}>Full name</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. Ama Mensah"
+            placeholderTextColor="#9CA3AF"
+            value={fullName}
+            onChangeText={setFullName}
+            autoCapitalize="words"
+          />
+
+          <Text style={[styles.label, styles.labelSpaced]}>Phone number</Text>
+          <View style={styles.phoneField}>
+            <Text style={styles.prefix}>+233</Text>
+            <View style={styles.prefixDivider} />
+            <TextInput
+              style={styles.phoneInput}
+              placeholder="54 392 7440"
+              placeholderTextColor="#9CA3AF"
+              keyboardType="phone-pad"
+              value={phoneNumber}
+              onChangeText={setPhoneNumber}
+            />
+          </View>
+          <Text style={styles.hint}>
+            We&apos;ll send a verification code via SMS
           </Text>
         </View>
 
-        <View style={styles.form}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Full Name</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. Kofi Mensah"
-              placeholderTextColor="#999"
-              value={fullName}
-              onChangeText={setFullName}
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Phone Number</Text>
-            <View style={styles.phoneRow}>
-              <View style={styles.countryCode}>
-                <Text style={styles.countryCodeText}>🇬🇭 +233</Text>
-              </View>
-              <TextInput
-                style={[styles.input, { flex: 1 }]}
-                placeholder="54 392 7440"
-                placeholderTextColor="#999"
-                keyboardType="phone-pad"
-                value={phoneNumber}
-                onChangeText={setPhoneNumber}
-              />
-            </View>
-          </View>
-
-          <TouchableOpacity style={styles.primaryBtn} onPress={handleSendCode}>
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={styles.primaryBtn}
+            activeOpacity={0.85}
+            onPress={handleSendCode}
+          >
             <Text style={styles.primaryBtnText}>Send verification code</Text>
           </TouchableOpacity>
-        </View>
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Already have an account? </Text>
-          <TouchableOpacity onPress={() => router.push("/(auth)/signin")}>
-            <Text style={styles.linkText}>Sign in</Text>
-          </TouchableOpacity>
+          <View style={styles.footerRow}>
+            <Text style={styles.footerText}>Already have an account? </Text>
+            <TouchableOpacity onPress={() => router.push("/(auth)/signin")}>
+              <Text style={styles.linkText}>Sign in</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F8F9FA" },
+  container: { flex: 1, backgroundColor: Brand.white },
+  flex: { flex: 1 },
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    backgroundColor: "#FFF",
-    borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
+    justifyContent: "space-between",
+    paddingHorizontal: 22,
+    paddingTop: 8,
+    paddingBottom: 18,
   },
-  backBtn: { width: 24, justifyContent: "center" },
-  backText: { fontSize: 22, fontWeight: "bold", color: "#111" },
-  headerTitle: { fontSize: 18, fontWeight: "bold", color: "#111" },
-  content: { flex: 1, padding: 24, justifyContent: "space-between" },
-  titleBox: { marginTop: 20 },
-  title: { fontSize: 22, fontWeight: "bold", color: "#111", marginBottom: 6 },
-  subtitle: { fontSize: 13, color: "#666", lineHeight: 18 },
-  form: { gap: 16, marginVertical: 20 },
-  inputGroup: { gap: 6 },
-  label: { fontSize: 12, fontWeight: "bold", color: "#444" },
+  backBtn: { width: 32, height: 32, justifyContent: "center" },
+  backText: { fontSize: 24, color: Brand.ink },
+  headerTitle: { fontSize: 17, fontWeight: "700", color: Brand.ink },
+  content: { flex: 1, paddingHorizontal: 22 },
+  title: {
+    fontSize: 26,
+    fontWeight: "800",
+    color: Brand.ink,
+    marginBottom: 12,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: Brand.grey,
+    lineHeight: 21,
+    marginBottom: 26,
+  },
+  label: { fontSize: 13, fontWeight: "700", color: Brand.ink, marginBottom: 8 },
+  labelSpaced: { marginTop: 20 },
   input: {
-    backgroundColor: "#FFF",
+    backgroundColor: Brand.field,
     borderRadius: 12,
     paddingHorizontal: 16,
-    height: 50,
-    fontSize: 14,
-    color: "#111",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
+    height: 52,
+    fontSize: 15,
+    color: Brand.ink,
   },
-  phoneRow: { flexDirection: "row", gap: 8 },
-  countryCode: {
-    backgroundColor: "#FFF",
+  phoneField: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Brand.field,
     borderRadius: 12,
-    paddingHorizontal: 14,
-    height: 50,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
+    height: 52,
+    paddingHorizontal: 16,
   },
-  countryCodeText: { fontSize: 13, fontWeight: "bold", color: "#111" },
+  prefix: { fontSize: 15, fontWeight: "700", color: Brand.ink },
+  prefixDivider: {
+    width: 1,
+    height: 22,
+    backgroundColor: "#D9D9D9",
+    marginHorizontal: 14,
+  },
+  phoneInput: { flex: 1, fontSize: 15, color: Brand.ink, height: "100%" },
+  hint: { fontSize: 12, color: "#9CA3AF", marginTop: 12 },
+  footer: { paddingHorizontal: 22, paddingBottom: 12 },
   primaryBtn: {
-    backgroundColor: "#DA291C",
-    borderRadius: 24,
-    height: 50,
+    backgroundColor: Brand.red,
+    borderRadius: 14,
+    height: 54,
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 10,
   },
-  primaryBtnText: { color: "#FFF", fontSize: 15, fontWeight: "bold" },
-  footer: { flexDirection: "row", justifyContent: "center", marginBottom: 20 },
-  footerText: { fontSize: 13, color: "#666" },
-  linkText: { fontSize: 13, fontWeight: "bold", color: "#DA291C" },
+  primaryBtnText: { color: Brand.white, fontSize: 16, fontWeight: "700" },
+  footerRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: 18,
+  },
+  footerText: { fontSize: 13, color: Brand.grey },
+  linkText: { fontSize: 13, fontWeight: "700", color: Brand.red },
 });

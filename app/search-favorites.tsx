@@ -1,6 +1,8 @@
+import { BRAND_IMAGES, PRODUCTS, formatPrice } from "@/constants/catalog";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
+    Image,
     ScrollView,
     StyleSheet,
     Text,
@@ -14,64 +16,11 @@ export default function SearchFavoritesScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Complete menu database for searching
-  const allMenuItems = [
-    {
-      id: "1",
-      name: "Single Cheese Burger",
-      category: "Burgers",
-      price: "GHS 70",
-      emoji: "🍔",
-    },
-    {
-      id: "2",
-      name: "Double Cheese Burger",
-      category: "Burgers",
-      price: "GHS 100",
-      emoji: "🍔",
-    },
-    {
-      id: "3",
-      name: "Crispy Chicken Burger",
-      category: "Burgers",
-      price: "GHS 85",
-      emoji: "🍗",
-    },
-    {
-      id: "4",
-      name: "Loaded French Fries",
-      category: "Sides",
-      price: "GHS 40",
-      emoji: "🍟",
-    },
-    {
-      id: "5",
-      name: "Onion Rings",
-      category: "Sides",
-      price: "GHS 35",
-      emoji: "🧅",
-    },
-    {
-      id: "6",
-      name: "Coca-Cola (Cold)",
-      category: "Drinks",
-      price: "GHS 15",
-      emoji: "🥤",
-    },
-    {
-      id: "7",
-      name: "Sprite / Fanta",
-      category: "Drinks",
-      price: "GHS 15",
-      emoji: "🥤",
-    },
-  ];
-
   // Smart spelling/partial match filtering
   const filteredResults =
     searchQuery.trim() === ""
       ? []
-      : allMenuItems.filter(
+      : PRODUCTS.filter(
           (item) =>
             item.name
               .toLowerCase()
@@ -123,22 +72,30 @@ export default function SearchFavoritesScreen() {
               <TouchableOpacity
                 key={item.id}
                 style={styles.resultCard}
-                onPress={() => router.push("/product-detail")}
+                onPress={() => router.push(`/product-detail?id=${item.id}`)}
               >
-                <View style={styles.emojiBox}>
-                  <Text style={styles.itemEmoji}>{item.emoji}</Text>
+                <View style={styles.thumbBox}>
+                  <Image
+                    source={item.image}
+                    style={styles.thumb}
+                    resizeMode="cover"
+                  />
                 </View>
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <Text style={styles.itemName}>{item.name}</Text>
                   <Text style={styles.itemCategory}>{item.category}</Text>
                 </View>
-                <Text style={styles.itemPrice}>{item.price}</Text>
+                <Text style={styles.itemPrice}>{formatPrice(item.price)}</Text>
               </TouchableOpacity>
             ))}
           </View>
         ) : (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyEmoji}>🍔</Text>
+            <Image
+              source={BRAND_IMAGES.loadingBurger}
+              style={styles.emptyImage}
+              resizeMode="cover"
+            />
             <Text style={styles.emptyTitle}>No matching items found</Text>
             <Text style={styles.emptySub}>
               Try checking your spelling or search for another favorite.
@@ -173,7 +130,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#111",
   },
-  clearText: { fontSize: 13, fontWeight: "bold", color: "#DA291C" },
+  clearText: { fontSize: 13, fontWeight: "bold", color: "#D62828" },
   content: { padding: 20 },
   emptyContainer: {
     alignItems: "center",
@@ -181,6 +138,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   emptyEmoji: { fontSize: 48, marginBottom: 12 },
+  emptyImage: { width: 96, height: 96, borderRadius: 48, marginBottom: 14 },
   emptyTitle: {
     fontSize: 16,
     fontWeight: "bold",
@@ -210,17 +168,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E5E7EB",
   },
-  emojiBox: {
+  thumbBox: {
     width: 44,
     height: 44,
     borderRadius: 10,
     backgroundColor: "#F9FAFB",
-    justifyContent: "center",
-    alignItems: "center",
     borderWidth: 1,
     borderColor: "#E5E7EB",
+    overflow: "hidden",
   },
-  itemEmoji: { fontSize: 24 },
+  thumb: { width: "100%", height: "100%" },
   itemName: {
     fontSize: 14,
     fontWeight: "bold",
@@ -228,5 +185,5 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   itemCategory: { fontSize: 11, color: "#666" },
-  itemPrice: { fontSize: 14, fontWeight: "bold", color: "#DA291C" },
+  itemPrice: { fontSize: 14, fontWeight: "bold", color: "#D62828" },
 });

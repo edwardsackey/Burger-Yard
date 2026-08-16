@@ -1,7 +1,9 @@
+import { PRODUCTS, formatPrice } from "@/constants/catalog";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   Alert,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,76 +17,10 @@ export default function MenuScreen() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [cartCount, setCartCount] = useState(2);
 
-  const menuItems = [
-    {
-      id: "1",
-      name: "Single Cheese Burger",
-      category: "Burgers",
-      price: "GHS 70",
-      rating: "4.8",
-      emoji: "🍔",
-      desc: "Beef patty, cheddar, lettuce, onions & yard sauce",
-    },
-    {
-      id: "2",
-      name: "Double Cheese Burger",
-      category: "Burgers",
-      price: "GHS 100",
-      rating: "4.9",
-      emoji: "🍔",
-      desc: "Double beef patties, double cheese, caramelized onions",
-    },
-    {
-      id: "3",
-      name: "Crispy Chicken Burger",
-      category: "Burgers",
-      price: "GHS 85",
-      rating: "4.7",
-      emoji: "🍗",
-      desc: "Crunchy fried chicken fillet, coleslaw & spicy mayo",
-    },
-    {
-      id: "4",
-      name: "Loaded French Fries",
-      category: "Sides",
-      price: "GHS 40",
-      rating: "4.6",
-      emoji: "🍟",
-      desc: "Crispy golden fries topped with melted cheese and bits",
-    },
-    {
-      id: "5",
-      name: "Onion Rings",
-      category: "Sides",
-      price: "GHS 35",
-      rating: "4.5",
-      emoji: "🧅",
-      desc: "Golden battered crispy onion rings with dip",
-    },
-    {
-      id: "6",
-      name: "Coca-Cola (Cold)",
-      category: "Drinks",
-      price: "GHS 15",
-      rating: "4.9",
-      emoji: "🥤",
-      desc: "Chilled 500ml PET bottle",
-    },
-    {
-      id: "7",
-      name: "Sprite / Fanta",
-      category: "Drinks",
-      price: "GHS 15",
-      rating: "4.8",
-      emoji: "🥤",
-      desc: "Chilled 500ml refreshing soda",
-    },
-  ];
-
   const filteredItems =
     selectedCategory === "All"
-      ? menuItems
-      : menuItems.filter((item) => item.category === selectedCategory);
+      ? PRODUCTS
+      : PRODUCTS.filter((item) => item.category === selectedCategory);
 
   const handleAddToCart = (itemName: string) => {
     setCartCount((prev) => prev + 1);
@@ -146,14 +82,20 @@ export default function MenuScreen() {
         {filteredItems.map((item) => (
           <View key={item.id} style={styles.card}>
             <TouchableOpacity
-              style={styles.emojiBox}
-              onPress={() => router.push("/product-detail")}
+              style={styles.thumbBox}
+              onPress={() => router.push(`/product-detail?id=${item.id}`)}
             >
-              <Text style={styles.emoji}>{item.emoji}</Text>
+              <Image
+                source={item.image}
+                style={styles.thumb}
+                resizeMode="cover"
+              />
             </TouchableOpacity>
 
             <View style={styles.cardInfo}>
-              <TouchableOpacity onPress={() => router.push("/product-detail")}>
+              <TouchableOpacity
+                onPress={() => router.push(`/product-detail?id=${item.id}`)}
+              >
                 <Text style={styles.itemName}>{item.name}</Text>
               </TouchableOpacity>
               <Text style={styles.itemDesc} numberOfLines={1}>
@@ -161,7 +103,7 @@ export default function MenuScreen() {
               </Text>
 
               <View style={styles.cardFooter}>
-                <Text style={styles.itemPrice}>{item.price}</Text>
+                <Text style={styles.itemPrice}>{formatPrice(item.price)}</Text>
                 <TouchableOpacity
                   style={styles.addBtn}
                   onPress={() => handleAddToCart(item.name)}
@@ -204,7 +146,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: -4,
     right: -4,
-    backgroundColor: "#DA291C",
+    backgroundColor: "#D62828",
     borderRadius: 10,
     minWidth: 18,
     height: 18,
@@ -226,7 +168,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: "#F3F4F6",
   },
-  filterTabActive: { backgroundColor: "#DA291C" },
+  filterTabActive: { backgroundColor: "#D62828" },
   filterText: { fontSize: 13, fontWeight: "600", color: "#555" },
   filterTextActive: { color: "#FFF" },
   listContent: { padding: 20, gap: 12 },
@@ -243,17 +185,16 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 1,
   },
-  emojiBox: {
+  thumbBox: {
     width: 72,
     height: 72,
     borderRadius: 12,
     backgroundColor: "#F9FAFB",
-    justifyContent: "center",
-    alignItems: "center",
     borderWidth: 1,
     borderColor: "#E5E7EB",
+    overflow: "hidden",
   },
-  emoji: { fontSize: 36 },
+  thumb: { width: "100%", height: "100%" },
   cardInfo: { flex: 1, marginLeft: 14 },
   itemName: {
     fontSize: 15,
@@ -267,12 +208,12 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  itemPrice: { fontSize: 15, fontWeight: "bold", color: "#DA291C" },
+  itemPrice: { fontSize: 15, fontWeight: "bold", color: "#D62828" },
   addBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "#DA291C",
+    backgroundColor: "#D62828",
     justifyContent: "center",
     alignItems: "center",
   },

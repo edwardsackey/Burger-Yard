@@ -1,3 +1,4 @@
+import { LoadingScreen } from "@/components/loading-screen";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -12,6 +13,17 @@ import {
 export default function CheckoutScreen() {
   const router = useRouter();
   const [payment, setPayment] = useState("momo");
+  const [placing, setPlacing] = useState(false);
+
+  const handlePlaceOrder = () => {
+    setPlacing(true);
+    setTimeout(() => {
+      setPlacing(false);
+      router.push("/order-placed");
+    }, 1800);
+  };
+
+  if (placing) return <LoadingScreen label="Placing your order" />;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -45,7 +57,7 @@ export default function CheckoutScreen() {
 
         <View style={styles.landmarkBox}>
           <Text style={styles.landmarkText}>
-            📍 Landmark — near Ayeduase gate
+            📍 Landmark: near Ayeduase gate
           </Text>
         </View>
 
@@ -61,7 +73,7 @@ export default function CheckoutScreen() {
           onPress={() => setPayment("momo")}
         >
           <View style={styles.payHeader}>
-            <Text style={styles.payTitle}>MoMo — Mobile Money</Text>
+            <Text style={styles.payTitle}>MoMo Mobile Money</Text>
             <View style={styles.radioOuter}>
               {payment === "momo" && <View style={styles.radioInner} />}
             </View>
@@ -101,7 +113,7 @@ export default function CheckoutScreen() {
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.orderBtn}
-          onPress={() => router.push("/order-placed")}
+          onPress={handlePlaceOrder}
         >
           <Text style={styles.orderBtnText}>Place order • GHS 195</Text>
         </TouchableOpacity>
@@ -146,7 +158,7 @@ const styles = StyleSheet.create({
     width: 14,
     height: 14,
     borderRadius: 7,
-    backgroundColor: "#DA291C",
+    backgroundColor: "#D62828",
     borderWidth: 2,
     borderColor: "#FFF",
   },
@@ -158,7 +170,7 @@ const styles = StyleSheet.create({
   },
   addressTitle: { fontSize: 14, fontWeight: "bold", color: "#111" },
   addressSub: { fontSize: 11, color: "#666", marginTop: 2 },
-  changeText: { fontSize: 13, fontWeight: "bold", color: "#DA291C" },
+  changeText: { fontSize: 13, fontWeight: "bold", color: "#D62828" },
   landmarkBox: {
     backgroundColor: "#FFF",
     padding: 14,
@@ -189,7 +201,7 @@ const styles = StyleSheet.create({
     borderColor: "#E5E7EB",
     marginBottom: 10,
   },
-  paySelected: { borderColor: "#DA291C", borderWidth: 1.5 },
+  paySelected: { borderColor: "#D62828", borderWidth: 1.5 },
   payHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -201,7 +213,7 @@ const styles = StyleSheet.create({
     height: 18,
     borderRadius: 9,
     borderWidth: 2,
-    borderColor: "#DA291C",
+    borderColor: "#D62828",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -209,7 +221,7 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: "#DA291C",
+    backgroundColor: "#D62828",
   },
   telcos: { flexDirection: "row", gap: 10, marginTop: 10 },
   telcoTag: {
@@ -227,7 +239,7 @@ const styles = StyleSheet.create({
     borderTopColor: "#E5E7EB",
   },
   orderBtn: {
-    backgroundColor: "#DA291C",
+    backgroundColor: "#D62828",
     borderRadius: 24,
     height: 50,
     justifyContent: "center",
