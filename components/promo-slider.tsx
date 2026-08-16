@@ -6,7 +6,6 @@ import {
   Image,
   Platform,
   StyleSheet,
-  TouchableOpacity,
   View,
   useWindowDimensions,
   type ImageSourcePropType,
@@ -14,80 +13,73 @@ import {
 
 const USE_NATIVE_DRIVER = Platform.OS !== "web";
 const SLIDES: ImageSourcePropType[] = [PROMO_IMAGES.hunger, PROMO_IMAGES.bite];
-const HOLD_MS = 4000;
-const FADE_MS = 450;
 
-/**
- * Both flyers are 713x768. The card takes that same ratio so the artwork
- * fills it exactly - anything else either crops the headline off or leaves
- * bars down the sides.
- */
-const SLIDE_ASPECT = 713 / 768;
+const HOLD_MS = 4000;
+const SLIDE_MS = 260;
+
+/** Landscape banner. The flyers are near square, so cover crops them. */
+const CARD_HEIGHT = 180;
 
 type Props = {
-  onPress?: () => void;
   /** Horizontal padding of the surrounding scroll content, per side. */
   horizontalInset?: number;
 };
 
 /**
- * One full-width promo card that cross-fades between the flyers, rather than a
- * side-by-side rail. Each flyer gets the whole card so its own artwork and
- * headline read at full size.
+ * A non-interactive promo banner that slides between the flyers on its own.
+ * Deliberately not pressable - it is artwork, not navigation.
  */
-export function PromoSlider({ onPress, horizontalInset = 20 }: Props) {
+export function PromoSlider({ horizontalInset = 20 }: Props) {
   const [index, setIndex] = useState(0);
-  const fade = useRef(new Animated.Value(1)).current;
+  const offset = useRef(new Animated.Value(0)).current;
 
-  // Derived from the window rather than measured. An explicit height is the
-  // only thing that beats the intrinsic height react-native-web writes inline
-  // from the asset, and it has to be right on the very first render.
   const { width: windowWidth } = useWindowDimensions();
+  // Sized up front rather than measured: react-native-web writes the asset's
+  // intrinsic height inline on an Image, which beats both aspectRatio and a
+  // height arriving from a later layout pass.
   const cardWidth = windowWidth - horizontalInset * 2;
-  const cardHeight = cardWidth / SLIDE_ASPECT;
 
   useEffect(() => {
     if (SLIDES.length < 2) return;
 
     const timer = setInterval(() => {
-      Animated.timing(fade, {
-        toValue: 0,
-        duration: FADE_MS,
-        easing: Easing.inOut(Easing.quad),
+      // Out to the left, jump to the right edge, then back in.
+      Animated.timing(offset, {
+        toValue: -cardWidth,
+        duration: SLIDE_MS,
+        easing: Easing.in(Easing.quad),
         useNativeDriver: USE_NATIVE_DRIVER,
       }).start(({ finished }) => {
         if (!finished) return;
         setIndex((i) => (i + 1) % SLIDES.length);
-        Animated.timing(fade, {
-          toValue: 1,
-          duration: FADE_MS,
-          easing: Easing.inOut(Easing.quad),
+        offset.setValue(cardWidth);
+        Animated.timing(offset, {
+          toValue: 0,
+          duration: SLIDE_MS,
+          easing: Easing.out(Easing.quad),
           useNativeDriver: USE_NATIVE_DRIVER,
         }).start();
       });
     }, HOLD_MS);
 
     return () => clearInterval(timer);
-  }, [fade]);
+  }, [offset, cardWidth]);
 
   return (
     <View style={styles.wrap}>
-      <TouchableOpacity activeOpacity={0.9} onPress={onPress}>
-        <Animated.View style={{ opacity: fade }}>
+      <View style={[styles.viewport, { width: cardWidth }]}>
+        <Animated.View style={{ transform: [{ translateX: offset }] }}>
           <Image
             source={SLIDES[index]}
-            style={[styles.image, { width: cardWidth, height: cardHeight }]}
+            style={{ width: cardWidth, height: CARD_HEIGHT }}
             resizeMode="cover"
           />
         </Animated.View>
-      </TouchableOpacity>
+      </View>
 
       <View style={styles.dots}>
         {SLIDES.map((_, i) => (
-          <View
-            key={i}
-            style={[styles.dot, i === index && styles.dotActive]}
-          />
+          <View key={i} style={[styles.dot, i === index && styles.dotActive]} />
         ))}
       </View>
     </View>
@@ -96,7 +88,13 @@ export function PromoSlider({ onPress, horizontalInset = 20 }: Props) {
 
 const styles = StyleSheet.create({
   wrap: { marginBottom: 20 },
-  image: { borderRadius: 16, backgroundColor: "#FFFFFF" },
+  viewport: {
+    height: CARD_HEIGHT,
+    borderRadius: 16,
+    // clips the outgoing slide so it does not bleed past the card
+    overflow: "hidden",
+    backgroundColor: "#FFFFFF",
+  },
   dots: {
     flexDirection: "row",
     justifyContent: "center",

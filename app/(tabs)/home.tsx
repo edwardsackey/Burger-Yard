@@ -140,8 +140,8 @@ export default function HomeScreen() {
           ))}
         </ScrollView>
 
-        {/* One promo card, cross-fading between the flyers */}
-        <PromoSlider onPress={() => router.push("/(tabs)/menu")} />
+        {/* Non-interactive promo banner that slides between the flyers */}
+        <PromoSlider />
 
         {/* Section Title */}
         <View style={styles.sectionHeader}>
