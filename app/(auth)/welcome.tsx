@@ -3,22 +3,16 @@ import { BRAND_IMAGES } from "@/constants/catalog";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React from "react";
-import {
-  Image,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 /**
- * Frame 5 of the new auth flow: the hero burger fills the frame, dimmed, with
- * the brand lockup and the two entry actions on top.
+ * Frame 5 (node 12:37) - the screen where you choose to sign up or sign in.
  *
- * Per the Figma note, only the frame fill is dimmed - the text and buttons keep
- * full opacity, so the image sits in its own layer with a scrim above it rather
- * than the whole screen carrying an opacity.
+ * The dim is opacity on the image itself over an ink background, not a scrim
+ * on top, which is what the design note meant by reducing the opacity of the
+ * frame fill without touching anything else in the frame. Solving
+ * `rendered = 0.4 * source + 0.6 * background` across the render puts the
+ * backdrop at #121212.
  */
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -27,106 +21,117 @@ export default function WelcomeScreen() {
     <View style={styles.root}>
       <StatusBar style="light" />
 
-      {/* Frame fill */}
       <Image
         source={BRAND_IMAGES.hero}
-        style={StyleSheet.absoluteFill}
+        style={styles.fill}
         resizeMode="cover"
       />
-      <View style={styles.scrim} />
 
-      {/* Content, at full opacity */}
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.content}>
-          <Text style={styles.brandTitle}>THE BURGER YARD</Text>
-          <Text style={styles.tagline}>DON&apos;T BE SHY, TAKE A BITE</Text>
-          <Text style={styles.description}>
-            Order your favourite burgers,{"\n"}pay with MoMo, and track{"\n"}your
-            delivery in real time.
-          </Text>
-        </View>
+      {/* Anchored to the vertical midpoint, matching top=422 on the 844 frame */}
+      <View style={styles.copy}>
+        <Text style={styles.tagline}>DON&apos;T BE SHY, TAKE A BITE</Text>
+        <Text style={styles.description}>
+          Order your favourite burgers pay with MoMo, and track your delivery in
+          real time.
+        </Text>
+      </View>
 
-        <View style={styles.footer}>
-          <TouchableOpacity
-            style={styles.primaryButton}
-            activeOpacity={0.85}
-            onPress={() => router.push("/(auth)/signup")}
-          >
-            <Text style={styles.primaryButtonText}>Create account</Text>
-          </TouchableOpacity>
+      <View style={styles.footer}>
+        <TouchableOpacity
+          style={styles.primaryButton}
+          activeOpacity={0.85}
+          onPress={() => router.push("/(auth)/signup")}
+        >
+          <Text style={styles.primaryButtonText}>Create account</Text>
+        </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            activeOpacity={0.85}
-            onPress={() => router.push("/(auth)/signin")}
-          >
-            <Text style={styles.secondaryButtonText}>Sign in</Text>
-          </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          activeOpacity={0.85}
+          onPress={() => router.push("/(auth)/signin")}
+        >
+          <Text style={styles.secondaryButtonText}>Sign in</Text>
+        </TouchableOpacity>
 
+        <View style={styles.terms}>
           <Text style={styles.termsText}>
             By continuing you agree to our Terms &amp; Privacy Policy
           </Text>
         </View>
-      </SafeAreaView>
+      </View>
     </View>
   );
 }
 
+const MUTED = "rgba(255,255,255,0.5)";
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Brand.ink },
-  scrim: { ...FillParent, backgroundColor: "rgba(0,0,0,0.45)" },
-  safe: { flex: 1, justifyContent: "space-between" },
-  content: {
-    flex: 1,
+  fill: { ...FillParent, opacity: 0.4 },
+  copy: {
+    position: "absolute",
+    top: "50%",
+    left: 0,
+    right: 0,
     alignItems: "center",
-    justifyContent: "center",
     paddingHorizontal: 24,
-  },
-  brandTitle: {
-    fontSize: 30,
-    fontWeight: "800",
-    color: Brand.white,
-    letterSpacing: 0.4,
-    textAlign: "center",
-    marginBottom: 14,
   },
   tagline: {
     fontSize: 12,
-    fontWeight: "700",
-    color: Brand.white,
-    letterSpacing: 1.1,
+    lineHeight: 16,
+    letterSpacing: 0.48,
+    color: MUTED,
     textAlign: "center",
-    marginBottom: 22,
   },
   description: {
-    textAlign: "center",
-    color: "#F1F1F1",
+    marginTop: 6,
+    width: 279,
     fontSize: 15,
-    lineHeight: 24,
+    lineHeight: 23,
+    color: MUTED,
+    textAlign: "center",
   },
-  footer: { paddingHorizontal: 20, paddingBottom: 18 },
+  footer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 14,
+    paddingBottom: 40,
+    gap: 12,
+  },
   primaryButton: {
     backgroundColor: Brand.red,
     borderRadius: 14,
-    height: 56,
-    justifyContent: "center",
+    paddingVertical: 16,
     alignItems: "center",
-    marginBottom: 12,
+    justifyContent: "center",
   },
-  primaryButtonText: { color: Brand.white, fontSize: 16, fontWeight: "700" },
+  primaryButtonText: {
+    color: Brand.white,
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: "600",
+  },
   secondaryButton: {
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.55)",
+    borderWidth: 1.5,
+    borderColor: "#E2E2E2",
     borderRadius: 14,
-    height: 56,
-    justifyContent: "center",
+    paddingVertical: 16,
     alignItems: "center",
-    marginBottom: 18,
+    justifyContent: "center",
   },
-  secondaryButtonText: { color: Brand.white, fontSize: 16, fontWeight: "600" },
+  secondaryButtonText: {
+    color: Brand.white,
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: "600",
+  },
+  terms: { paddingTop: 8, alignItems: "center" },
   termsText: {
-    textAlign: "center",
+    color: "#9A9A9A",
     fontSize: 11,
-    color: "rgba(255,255,255,0.7)",
+    lineHeight: 15,
+    textAlign: "center",
   },
 });

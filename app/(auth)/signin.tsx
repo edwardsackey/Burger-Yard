@@ -1,3 +1,4 @@
+import { DismissKeyboard } from "@/components/dismiss-keyboard";
 import { LoadingOverlay } from "@/components/loading-screen";
 import { Brand } from "@/constants/brand";
 import { useRouter } from "expo-router";
@@ -51,44 +52,48 @@ export default function SignInScreen() {
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <View style={styles.content}>
-          <Text style={styles.title}>Welcome back</Text>
-          <Text style={styles.subtitle}>
-            Sign in with your phone number. We&apos;ll send a one-time code.
-          </Text>
+        <DismissKeyboard>
+          <View style={styles.content}>
+            <Text style={styles.title}>Welcome back</Text>
+            <Text style={styles.subtitle}>
+              Sign in with your phone number. We&apos;ll send a one-time code.
+            </Text>
 
-          <Text style={styles.label}>Phone number</Text>
-          <View style={styles.phoneField}>
-            <Text style={styles.prefix}>+233</Text>
-            <View style={styles.prefixDivider} />
-            <TextInput
-              style={styles.phoneInput}
-              placeholder="54 392 7440"
-              placeholderTextColor="#9CA3AF"
-              keyboardType="phone-pad"
-              value={phoneNumber}
-              onChangeText={setPhoneNumber}
-            />
+            <Text style={styles.label}>Phone number</Text>
+            <View style={styles.phoneField}>
+              <Text style={styles.prefix}>+233</Text>
+              <View style={styles.prefixDivider} />
+              <TextInput
+                style={styles.phoneInput}
+                placeholder="54 392 7440"
+                placeholderTextColor="#9CA3AF"
+                keyboardType="phone-pad"
+                value={phoneNumber}
+                onChangeText={setPhoneNumber}
+              />
+            </View>
+            <Text style={styles.hint}>A 4-digit OTP will be sent via SMS</Text>
           </View>
-          <Text style={styles.hint}>A 4-digit OTP will be sent via SMS</Text>
-        </View>
 
-        <View style={styles.footer}>
-          <TouchableOpacity
-            style={styles.primaryBtn}
-            activeOpacity={0.85}
-            onPress={handleSendOtp}
-          >
-            <Text style={styles.primaryBtnText}>Send OTP</Text>
-          </TouchableOpacity>
-
-          <View style={styles.footerRow}>
-            <Text style={styles.footerText}>Don&apos;t have an account? </Text>
-            <TouchableOpacity onPress={() => router.push("/(auth)/signup")}>
-              <Text style={styles.linkText}>Create one</Text>
+          <View style={styles.footer}>
+            <TouchableOpacity
+              style={styles.primaryBtn}
+              activeOpacity={0.85}
+              onPress={handleSendOtp}
+            >
+              <Text style={styles.primaryBtnText}>Send OTP</Text>
             </TouchableOpacity>
+
+            <View style={styles.footerRow}>
+              <Text style={styles.footerText}>
+                Don&apos;t have an account?{" "}
+              </Text>
+              <TouchableOpacity onPress={() => router.push("/(auth)/signup")}>
+                <Text style={styles.linkText}>Create one</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        </DismissKeyboard>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

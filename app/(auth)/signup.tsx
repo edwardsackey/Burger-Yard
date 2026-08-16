@@ -1,3 +1,4 @@
+import { DismissKeyboard } from "@/components/dismiss-keyboard";
 import { LoadingOverlay } from "@/components/loading-screen";
 import { Brand } from "@/constants/brand";
 import { useRouter } from "expo-router";
@@ -55,57 +56,59 @@ export default function SignUpScreen() {
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <View style={styles.content}>
-          <Text style={styles.title}>Create your account</Text>
-          <Text style={styles.subtitle}>
-            Enter your phone number and we&apos;ll send you a one-time code to
-            verify.
-          </Text>
+        <DismissKeyboard>
+          <View style={styles.content}>
+            <Text style={styles.title}>Create your account</Text>
+            <Text style={styles.subtitle}>
+              Enter your phone number and we&apos;ll send you a one-time code to
+              verify.
+            </Text>
 
-          <Text style={styles.label}>Full name</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. Ama Mensah"
-            placeholderTextColor="#9CA3AF"
-            value={fullName}
-            onChangeText={setFullName}
-            autoCapitalize="words"
-          />
-
-          <Text style={[styles.label, styles.labelSpaced]}>Phone number</Text>
-          <View style={styles.phoneField}>
-            <Text style={styles.prefix}>+233</Text>
-            <View style={styles.prefixDivider} />
+            <Text style={styles.label}>Full name</Text>
             <TextInput
-              style={styles.phoneInput}
-              placeholder="54 392 7440"
+              style={styles.input}
+              placeholder="e.g. Ama Mensah"
               placeholderTextColor="#9CA3AF"
-              keyboardType="phone-pad"
-              value={phoneNumber}
-              onChangeText={setPhoneNumber}
+              value={fullName}
+              onChangeText={setFullName}
+              autoCapitalize="words"
             />
+
+            <Text style={[styles.label, styles.labelSpaced]}>Phone number</Text>
+            <View style={styles.phoneField}>
+              <Text style={styles.prefix}>+233</Text>
+              <View style={styles.prefixDivider} />
+              <TextInput
+                style={styles.phoneInput}
+                placeholder="54 392 7440"
+                placeholderTextColor="#9CA3AF"
+                keyboardType="phone-pad"
+                value={phoneNumber}
+                onChangeText={setPhoneNumber}
+              />
+            </View>
+            <Text style={styles.hint}>
+              We&apos;ll send a verification code via SMS
+            </Text>
           </View>
-          <Text style={styles.hint}>
-            We&apos;ll send a verification code via SMS
-          </Text>
-        </View>
 
-        <View style={styles.footer}>
-          <TouchableOpacity
-            style={styles.primaryBtn}
-            activeOpacity={0.85}
-            onPress={handleSendCode}
-          >
-            <Text style={styles.primaryBtnText}>Send verification code</Text>
-          </TouchableOpacity>
-
-          <View style={styles.footerRow}>
-            <Text style={styles.footerText}>Already have an account? </Text>
-            <TouchableOpacity onPress={() => router.push("/(auth)/signin")}>
-              <Text style={styles.linkText}>Sign in</Text>
+          <View style={styles.footer}>
+            <TouchableOpacity
+              style={styles.primaryBtn}
+              activeOpacity={0.85}
+              onPress={handleSendCode}
+            >
+              <Text style={styles.primaryBtnText}>Send verification code</Text>
             </TouchableOpacity>
+
+            <View style={styles.footerRow}>
+              <Text style={styles.footerText}>Already have an account? </Text>
+              <TouchableOpacity onPress={() => router.push("/(auth)/signin")}>
+                <Text style={styles.linkText}>Sign in</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        </DismissKeyboard>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

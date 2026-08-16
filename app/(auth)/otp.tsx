@@ -1,3 +1,4 @@
+import { DismissKeyboard } from "@/components/dismiss-keyboard";
 import { LoadingOverlay } from "@/components/loading-screen";
 import { Brand } from "@/constants/brand";
 import { useRouter } from "expo-router";
@@ -5,6 +6,7 @@ import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
+  Keyboard,
   NativeSyntheticEvent,
   StyleSheet,
   Text,
@@ -36,7 +38,17 @@ export default function OtpScreen() {
     const next = [...otp];
     next[index] = digit;
     setOtp(next);
-    if (digit && index < 3) inputs.current[index + 1]?.focus();
+
+    if (digit && index < 3) {
+      inputs.current[index + 1]?.focus();
+    } else if (digit && next.every((d) => d)) {
+      // The code is complete, so drop the number pad rather than leave it
+      // sitting over the Verify button. Blur the field as well as calling
+      // Keyboard.dismiss: on web the latter goes through TextInputState,
+      // which only tracks fields it focused itself.
+      inputs.current[index]?.blur();
+      Keyboard.dismiss();
+    }
   };
 
   const handleKeyPress = (
@@ -74,70 +86,77 @@ export default function OtpScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <StatusBar style="dark" />
-
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backText}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Verification</Text>
-      </View>
-
-      <View style={styles.content}>
-        <View style={styles.lockCircle}>
-          <Text style={styles.lockGlyph}>🔒</Text>
-        </View>
-
-        <Text style={styles.title}>Enter OTP</Text>
-        <Text style={styles.subtitle}>
-          We sent a 4-digit code to{"\n"}+233 54 392 7440
-        </Text>
-
-        <View style={styles.otpRow}>
-          {[0, 1, 2, 3].map((index) => (
-            <TextInput
-              key={index}
-              ref={(el) => {
-                inputs.current[index] = el;
-              }}
-              style={[styles.otpInput, otp[index] ? styles.otpInputFilled : null]}
-              keyboardType="number-pad"
-              maxLength={1}
-              value={otp[index]}
-              onChangeText={(text) => handleChange(index, text)}
-              onKeyPress={(e) => handleKeyPress(index, e)}
-            />
-          ))}
-        </View>
-
-        <Text style={styles.resendLine}>
-          Resend code in <Text style={styles.timer}>{timer}</Text>
-        </Text>
-      </View>
-
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={styles.primaryBtn}
-          activeOpacity={0.85}
-          onPress={handleVerify}
-        >
-          <Text style={styles.primaryBtnText}>Verify</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={handleResend}
-          disabled={secondsLeft > 0}
-          style={styles.resendBtn}
-        >
-          <Text
-            style={[
-              styles.resendText,
-              secondsLeft === 0 && styles.resendTextActive,
-            ]}
+      <DismissKeyboard>
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backBtn}
           >
-            Didn&apos;t get it? Resend SMS
+            <Text style={styles.backText}>←</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Verification</Text>
+        </View>
+
+        <View style={styles.content}>
+          <View style={styles.lockCircle}>
+            <Text style={styles.lockGlyph}>🔒</Text>
+          </View>
+
+          <Text style={styles.title}>Enter OTP</Text>
+          <Text style={styles.subtitle}>
+            We sent a 4-digit code to{"\n"}+233 54 392 7440
           </Text>
-        </TouchableOpacity>
-      </View>
+
+          <View style={styles.otpRow}>
+            {[0, 1, 2, 3].map((index) => (
+              <TextInput
+                key={index}
+                ref={(el) => {
+                  inputs.current[index] = el;
+                }}
+                style={[
+                  styles.otpInput,
+                  otp[index] ? styles.otpInputFilled : null,
+                ]}
+                keyboardType="number-pad"
+                maxLength={1}
+                value={otp[index]}
+                onChangeText={(text) => handleChange(index, text)}
+                onKeyPress={(e) => handleKeyPress(index, e)}
+              />
+            ))}
+          </View>
+
+          <Text style={styles.resendLine}>
+            Resend code in <Text style={styles.timer}>{timer}</Text>
+          </Text>
+        </View>
+
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={styles.primaryBtn}
+            activeOpacity={0.85}
+            onPress={handleVerify}
+          >
+            <Text style={styles.primaryBtnText}>Verify</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleResend}
+            disabled={secondsLeft > 0}
+            style={styles.resendBtn}
+          >
+            <Text
+              style={[
+                styles.resendText,
+                secondsLeft === 0 && styles.resendTextActive,
+              ]}
+            >
+              Didn&apos;t get it? Resend SMS
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </DismissKeyboard>
     </SafeAreaView>
   );
 }
