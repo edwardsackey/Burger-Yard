@@ -21,15 +21,18 @@ export default function ProductDetailScreen() {
   const [selected, setSelected] = useState<string[]>([]);
   const [favourite, setFavourite] = useState(false);
 
+  // Extras are toppings, so they only make sense on food.
+  const offersExtras = product.category !== "Drinks";
+
   const toggleExtra = (name: string) =>
     setSelected((prev) =>
       prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name],
     );
 
-  const extrasTotal = EXTRAS.filter((e) => selected.includes(e.name)).reduce(
-    (sum, e) => sum + e.price,
-    0,
-  );
+  const chosenExtras = offersExtras ? selected : [];
+  const extrasTotal = EXTRAS.filter((e) =>
+    chosenExtras.includes(e.name),
+  ).reduce((sum, e) => sum + e.price, 0);
   const total = product.price + extrasTotal;
 
   return (
@@ -68,31 +71,39 @@ export default function ProductDetailScreen() {
         <Text style={styles.metaText}>{product.rating} • 200+ sold</Text>
         <Text style={styles.description}>{product.desc}</Text>
 
-        <Text style={styles.sectionHeader}>Add extras</Text>
+        {offersExtras && (
+          <>
+            <Text style={styles.sectionHeader}>Add extras</Text>
 
-        {EXTRAS.map((extra) => {
-          const isOn = selected.includes(extra.name);
-          return (
-            <TouchableOpacity
-              key={extra.name}
-              style={styles.extraItem}
-              onPress={() => toggleExtra(extra.name)}
-            >
-              <View style={[styles.checkbox, isOn && styles.checkboxSelected]}>
-                {isOn && <Text style={styles.checkmark}>✓</Text>}
-              </View>
-              <Text style={styles.extraName}>{extra.name}</Text>
-              <Text style={styles.extraPrice}>+ {formatPrice(extra.price)}</Text>
-            </TouchableOpacity>
-          );
-        })}
+            {EXTRAS.map((extra) => {
+              const isOn = selected.includes(extra.name);
+              return (
+                <TouchableOpacity
+                  key={extra.name}
+                  style={styles.extraItem}
+                  onPress={() => toggleExtra(extra.name)}
+                >
+                  <View
+                    style={[styles.checkbox, isOn && styles.checkboxSelected]}
+                  >
+                    {isOn && <Text style={styles.checkmark}>✓</Text>}
+                  </View>
+                  <Text style={styles.extraName}>{extra.name}</Text>
+                  <Text style={styles.extraPrice}>
+                    + {formatPrice(extra.price)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </>
+        )}
       </ScrollView>
 
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.addToCartBtn}
           onPress={() => {
-            addItem(product.id, selected);
+            addItem(product.id, chosenExtras);
             router.back();
           }}
         >

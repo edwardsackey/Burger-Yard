@@ -8,6 +8,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   View,
+  useWindowDimensions,
   type ImageSourcePropType,
 } from "react-native";
 
@@ -16,8 +17,17 @@ const SLIDES: ImageSourcePropType[] = [PROMO_IMAGES.hunger, PROMO_IMAGES.bite];
 const HOLD_MS = 4000;
 const FADE_MS = 450;
 
+/**
+ * Both flyers are 713x768. The card takes that same ratio so the artwork
+ * fills it exactly - anything else either crops the headline off or leaves
+ * bars down the sides.
+ */
+const SLIDE_ASPECT = 713 / 768;
+
 type Props = {
   onPress?: () => void;
+  /** Horizontal padding of the surrounding scroll content, per side. */
+  horizontalInset?: number;
 };
 
 /**
@@ -25,9 +35,16 @@ type Props = {
  * side-by-side rail. Each flyer gets the whole card so its own artwork and
  * headline read at full size.
  */
-export function PromoSlider({ onPress }: Props) {
+export function PromoSlider({ onPress, horizontalInset = 20 }: Props) {
   const [index, setIndex] = useState(0);
   const fade = useRef(new Animated.Value(1)).current;
+
+  // Derived from the window rather than measured. An explicit height is the
+  // only thing that beats the intrinsic height react-native-web writes inline
+  // from the asset, and it has to be right on the very first render.
+  const { width: windowWidth } = useWindowDimensions();
+  const cardWidth = windowWidth - horizontalInset * 2;
+  const cardHeight = cardWidth / SLIDE_ASPECT;
 
   useEffect(() => {
     if (SLIDES.length < 2) return;
@@ -59,7 +76,7 @@ export function PromoSlider({ onPress }: Props) {
         <Animated.View style={{ opacity: fade }}>
           <Image
             source={SLIDES[index]}
-            style={styles.image}
+            style={[styles.image, { width: cardWidth, height: cardHeight }]}
             resizeMode="cover"
           />
         </Animated.View>
@@ -79,12 +96,7 @@ export function PromoSlider({ onPress }: Props) {
 
 const styles = StyleSheet.create({
   wrap: { marginBottom: 20 },
-  image: {
-    width: "100%",
-    height: 190,
-    borderRadius: 16,
-    backgroundColor: "#FFFFFF",
-  },
+  image: { borderRadius: 16, backgroundColor: "#FFFFFF" },
   dots: {
     flexDirection: "row",
     justifyContent: "center",

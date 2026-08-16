@@ -1,3 +1,5 @@
+import { ORDERS } from "@/constants/orders";
+import { useNotifications } from "@/store/app-store";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -12,6 +14,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ProfileScreen() {
   const router = useRouter();
+  // Counts, not unread flags, so the totals are still there after a visit.
+  const { items: notifications } = useNotifications();
 
   // Profile editable state
   const [isEditing, setIsEditing] = useState(false);
@@ -100,7 +104,7 @@ export default function ProfileScreen() {
             {
               title: "Order History",
               subtitle: "View past orders",
-              badge: "3",
+              badge: ORDERS.length ? String(ORDERS.length) : null,
               route: "/order-history",
               icon: "📋",
             },
@@ -121,7 +125,9 @@ export default function ProfileScreen() {
             {
               title: "Notifications",
               subtitle: "Order updates & promos",
-              badge: "2",
+              badge: notifications.length
+                ? String(notifications.length)
+                : null,
               route: "/notifications",
               icon: "🔔",
             },

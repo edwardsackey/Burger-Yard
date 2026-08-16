@@ -1,3 +1,4 @@
+import { ORDERS, type OrderStatus } from "@/constants/orders";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -8,40 +9,6 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-type OrderStatus = "Active" | "Completed";
-
-type Order = {
-  id: string;
-  date: string;
-  status: OrderStatus;
-  items: string;
-  total: number;
-};
-
-const ORDERS: Order[] = [
-  {
-    id: "1042",
-    date: "Today, 12:09",
-    status: "Active",
-    items: "2x Single Cheese Burger (+Bacon), Chicken Burger, Coca-Cola",
-    total: 195,
-  },
-  {
-    id: "1037",
-    date: "Yesterday",
-    status: "Completed",
-    items: "Single Cheese Burger, Fries Regular, Coca-Cola",
-    total: 105,
-  },
-  {
-    id: "1031",
-    date: "12 Aug",
-    status: "Completed",
-    items: "Double Cheese Burger, Loaded French Fries",
-    total: 140,
-  },
-];
 
 export default function OrderHistoryScreen() {
   const router = useRouter();
