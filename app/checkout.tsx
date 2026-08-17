@@ -3,22 +3,40 @@ import { useCart, useNotifications } from "@/store/app-store";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+const NETWORKS = [
+  { id: "mtn", label: "MTN", dot: "🟡" },
+  { id: "telecel", label: "Telecel", dot: "🔴" },
+  { id: "at", label: "AT", dot: "🔵" },
+];
+
 export default function CheckoutScreen() {
   const router = useRouter();
   const [payment, setPayment] = useState("momo");
+  const [network, setNetwork] = useState("mtn");
+  const [phone, setPhone] = useState("054 392 7440");
   const [placing, setPlacing] = useState(false);
   const { lines, total, clear } = useCart();
   const { notify } = useNotifications();
 
   const handlePlaceOrder = () => {
+    if (phone.replace(/\D/g, "").length < 9) {
+      Alert.alert(
+        "Check your phone number",
+        "Enter the number the rider should call.",
+      );
+      return;
+    }
+
     const summary = lines
       .map((l) => (l.quantity > 1 ? `${l.quantity}x ${l.name}` : l.name))
       .join(", ");
@@ -50,6 +68,10 @@ export default function CheckoutScreen() {
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        // dragging the list puts the number pad away, and taps still reach
+        // the payment options while it is open
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
       >
         <Text style={styles.sectionLabel}>Delivery location</Text>
         <View style={styles.mapBox}>
@@ -75,7 +97,14 @@ export default function CheckoutScreen() {
 
         <View style={styles.phoneBox}>
           <Text style={styles.phoneLabel}>Phone</Text>
-          <Text style={styles.phoneVal}>054 392 7440</Text>
+          <TextInput
+            style={styles.phoneInput}
+            value={phone}
+            onChangeText={setPhone}
+            keyboardType="phone-pad"
+            placeholder="054 392 7440"
+            placeholderTextColor="#9CA3AF"
+          />
         </View>
 
         <Text style={styles.sectionLabel}>Payment method</Text>
@@ -90,12 +119,47 @@ export default function CheckoutScreen() {
               {payment === "momo" && <View style={styles.radioInner} />}
             </View>
           </View>
-          <View style={styles.telcos}>
-            <Text style={styles.telcoTag}>🟡 MTN</Text>
-            <Text style={styles.telcoTag}>🔴 Telecel</Text>
-            <Text style={styles.telcoTag}>🔵 AT</Text>
-          </View>
+          {payment === "momo" && (
+            <Text style={styles.paySub}>
+              {NETWORKS.find((n) => n.id === network)?.label} selected
+            </Text>
+          )}
         </TouchableOpacity>
+
+        {/* Deliberately a sibling of the card, not a child of it: nesting these
+            inside the card's own touchable stops their presses landing. */}
+        {payment === "momo" && (
+          <View style={styles.networks}>
+            {NETWORKS.map((n) => {
+              const active = network === n.id;
+              return (
+                <TouchableOpacity
+                  key={n.id}
+                  style={[styles.networkRow, active && styles.networkActive]}
+                  onPress={() => setNetwork(n.id)}
+                >
+                  <Text style={styles.networkDot}>{n.dot}</Text>
+                  <Text
+                    style={[
+                      styles.networkLabel,
+                      active && styles.networkLabelActive,
+                    ]}
+                  >
+                    {n.label}
+                  </Text>
+                  <View
+                    style={[
+                      styles.radioOuterSm,
+                      !active && styles.radioOuterIdle,
+                    ]}
+                  >
+                    {active && <View style={styles.radioInnerSm} />}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
 
         <TouchableOpacity
           style={[styles.payCard, payment === "card" && styles.paySelected]}
@@ -204,7 +268,14 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   phoneLabel: { fontSize: 14, color: "#666" },
-  phoneVal: { fontSize: 14, fontWeight: "bold", color: "#111" },
+  phoneInput: {
+    flex: 1,
+    marginLeft: 16,
+    textAlign: "right",
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#111",
+  },
   payCard: {
     backgroundColor: "#FFF",
     borderRadius: 14,
@@ -235,14 +306,37 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     backgroundColor: "#D62828",
   },
-  telcos: { flexDirection: "row", gap: 10, marginTop: 10 },
-  telcoTag: {
-    fontSize: 11,
-    backgroundColor: "#F3F4F6",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    fontWeight: "600",
+  paySub: { fontSize: 11, color: "#D62828", fontWeight: "600", marginTop: 6 },
+  networks: { gap: 8, marginBottom: 10, paddingLeft: 12 },
+  networkRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F9FAFB",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  networkActive: { borderColor: "#D62828", backgroundColor: "#FFF5F5" },
+  networkDot: { fontSize: 12, marginRight: 8 },
+  networkLabel: { flex: 1, fontSize: 13, fontWeight: "600", color: "#444" },
+  networkLabelActive: { color: "#111" },
+  radioOuterSm: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: "#D62828",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  radioOuterIdle: { borderColor: "#D1D5DB" },
+  radioInnerSm: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#D62828",
   },
   footer: {
     padding: 20,

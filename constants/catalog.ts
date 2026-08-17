@@ -21,6 +21,12 @@ export type Product = {
 
 export const CATEGORIES: Category[] = ["Burgers", "Sides", "Drinks"];
 
+/**
+ * The combo advertised on the home banner. It is a real catalog entry so the
+ * price on the banner and the price on its detail screen cannot drift apart.
+ */
+export const DEAL_ID = "9";
+
 export const PRODUCTS: Product[] = [
   {
     id: "1",
@@ -102,6 +108,16 @@ export const PRODUCTS: Product[] = [
     image: require("@/assets/images/products/bb-cocktail.jpg"),
     fit: "contain",
   },
+  {
+    id: DEAL_ID,
+    name: "Double Yard Deal",
+    category: "Burgers",
+    price: 180,
+    rating: "4.9",
+    desc: "2x Double Cheese Burger + Large Fries, saving GHS 60",
+    image: require("@/assets/images/products/double-cheese-burger.jpg"),
+    fit: "cover",
+  },
 ];
 
 /** Optional add-ons offered on the product detail screen, in GHS. */
@@ -133,6 +149,11 @@ export const BRAND_IMAGES = {
 
 export function getProduct(id: string): Product {
   return PRODUCTS.find((p) => p.id === id) ?? PRODUCTS[0];
+}
+
+/** The banner combo, so its copy and its detail screen read from one source. */
+export function getDeal(): Product {
+  return getProduct(DEAL_ID);
 }
 
 export function getProductImage(id: string): ImageSourcePropType {

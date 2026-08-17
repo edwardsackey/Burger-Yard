@@ -1,5 +1,11 @@
 import { FillParent } from "@/constants/brand";
-import { BRAND_IMAGES, PRODUCTS, formatPrice } from "@/constants/catalog";
+import {
+  BRAND_IMAGES,
+  DEAL_ID,
+  PRODUCTS,
+  formatPrice,
+  getDeal,
+} from "@/constants/catalog";
 import { PromoSlider } from "@/components/promo-slider";
 import { useCart, useNotifications } from "@/store/app-store";
 import { useRouter } from "expo-router";
@@ -20,10 +26,14 @@ export default function HomeScreen() {
   const { itemCount, addItem } = useCart();
   const { unreadCount } = useNotifications();
 
+  const deal = getDeal();
+
+  // The deal already has the banner directly above, so keep it out of the grid.
+  const browsable = PRODUCTS.filter((item) => item.id !== DEAL_ID);
   const filteredItems =
     activeCategory === "All"
-      ? PRODUCTS
-      : PRODUCTS.filter((item) => item.category === activeCategory);
+      ? browsable
+      : browsable.filter((item) => item.category === activeCategory);
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -93,14 +103,17 @@ export default function HomeScreen() {
             <View style={styles.bannerTag}>
               <Text style={styles.bannerTagText}>WEEKEND SPECIAL</Text>
             </View>
-            <Text style={styles.bannerTitle}>Double Yard Deal</Text>
+            {/* Name, blurb and price all come from the deal itself, so the
+                banner cannot advertise a figure its detail screen disagrees
+                with. */}
+            <Text style={styles.bannerTitle}>{deal.name}</Text>
             <Text style={styles.bannerSub}>
-              Get 2 Double Cheese Burgers + Large Fries for GHS 180
+              {deal.desc} • {formatPrice(deal.price)}
             </Text>
 
             <TouchableOpacity
               style={styles.bannerBtn}
-              onPress={() => router.push("/product-detail?id=2")}
+              onPress={() => router.push(`/product-detail?id=${deal.id}`)}
             >
               <Text style={styles.bannerBtnText}>Order now</Text>
             </TouchableOpacity>
