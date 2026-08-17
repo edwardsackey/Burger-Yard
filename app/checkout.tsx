@@ -1,7 +1,14 @@
 import { LoadingScreen } from "@/components/loading-screen";
-import { useCart, useNotifications } from "@/store/app-store";
+import {
+  NETWORKS,
+  detectNetwork,
+  isCompletePhone,
+  networkLabel,
+  type NetworkId,
+} from "@/constants/networks";
+import { useAccount, useCart, useNotifications } from "@/store/app-store";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
   ScrollView,
@@ -13,27 +20,59 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const NETWORKS = [
-  { id: "mtn", label: "MTN", dot: "🟡" },
-  { id: "telecel", label: "Telecel", dot: "🔴" },
-  { id: "at", label: "AT", dot: "🔵" },
-];
-
 export default function CheckoutScreen() {
   const router = useRouter();
+  const { account, card } = useAccount();
   const [payment, setPayment] = useState("momo");
-  const [network, setNetwork] = useState("mtn");
-  const [phone, setPhone] = useState("054 392 7440");
+  const [network, setNetwork] = useState<NetworkId>("mtn");
+  const [phone, setPhone] = useState(account.phone);
   const [placing, setPlacing] = useState(false);
   const { lines, total, clear } = useCart();
   const { notify } = useNotifications();
 
+  // Default to the number they signed in with, without locking them to it:
+  // only seed it while the field is still untouched.
+  useEffect(() => {
+    setPhone((current) => (current ? current : account.phone));
+  }, [account.phone]);
+
+  // Which network the number itself belongs to, once enough digits are in.
+  const detected = detectNetwork(phone);
+  const complete = isCompletePhone(phone);
+  const mismatch = payment === "momo" && detected !== null && detected !== network;
+
   const handlePlaceOrder = () => {
-    if (phone.replace(/\D/g, "").length < 9) {
+    if (!complete) {
       Alert.alert(
         "Check your phone number",
-        "Enter the number the rider should call.",
+        "Enter the full 10 digit number the rider should call.",
       );
+      return;
+    }
+
+    if (mismatch && detected) {
+      Alert.alert(
+        "Wrong network selected",
+        `That number belongs to ${networkLabel(detected)}, but you picked ${networkLabel(network)}. Switch provider, or enter a number on ${networkLabel(network)}.`,
+        [
+          { text: "Change number", style: "cancel" },
+          {
+            text: `Use ${networkLabel(detected)}`,
+            onPress: () => setNetwork(detected),
+          },
+        ],
+      );
+      return;
+    }
+
+    if (payment === "card" && !card) {
+      Alert.alert("No card saved", "Add your card details before ordering.", [
+        { text: "Not now", style: "cancel" },
+        {
+          text: "Add card",
+          onPress: () => router.push("/card-details"),
+        },
+      ]);
       return;
     }
 
@@ -158,6 +197,20 @@ export default function CheckoutScreen() {
                 </TouchableOpacity>
               );
             })}
+
+            {mismatch && detected && (
+              <View style={styles.warnBox}>
+                <Text style={styles.warnText}>
+                  {phone.trim()} belongs to {networkLabel(detected)}, but{" "}
+                  {networkLabel(network)} is selected.
+                </Text>
+                <TouchableOpacity onPress={() => setNetwork(detected)}>
+                  <Text style={styles.warnAction}>
+                    Switch to {networkLabel(detected)}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         )}
 
@@ -171,7 +224,24 @@ export default function CheckoutScreen() {
               {payment === "card" && <View style={styles.radioInner} />}
             </View>
           </View>
+          {payment === "card" && card && (
+            <Text style={styles.paySub}>
+              •••• {card.last4} · expires {card.expiry}
+            </Text>
+          )}
         </TouchableOpacity>
+
+        {/* Sibling of the card, same reason as the networks above */}
+        {payment === "card" && (
+          <TouchableOpacity
+            style={styles.cardCta}
+            onPress={() => router.push("/card-details")}
+          >
+            <Text style={styles.cardCtaText}>
+              {card ? "Change card details" : "+ Add card details"}
+            </Text>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity
           style={[styles.payCard, payment === "cash" && styles.paySelected]}
@@ -308,6 +378,32 @@ const styles = StyleSheet.create({
   },
   paySub: { fontSize: 11, color: "#D62828", fontWeight: "600", marginTop: 6 },
   networks: { gap: 8, marginBottom: 10, paddingLeft: 12 },
+  warnBox: {
+    backgroundColor: "#FEF3C7",
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 4,
+  },
+  warnText: { fontSize: 12, color: "#92400E", lineHeight: 17 },
+  warnAction: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#B45309",
+    marginTop: 8,
+  },
+  cardCta: {
+    borderWidth: 1.5,
+    borderColor: "#D62828",
+    borderStyle: "dashed",
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginBottom: 10,
+    marginLeft: 12,
+  },
+  cardCtaText: { fontSize: 13, fontWeight: "700", color: "#D62828" },
   networkRow: {
     flexDirection: "row",
     alignItems: "center",

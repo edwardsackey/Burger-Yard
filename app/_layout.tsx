@@ -20,6 +20,7 @@ export default function RootLayout() {
         <Stack.Screen name="help-support" />
         <Stack.Screen name="saved-addresses" />
         <Stack.Screen name="payment-methods" />
+        <Stack.Screen name="card-details" />
         <Stack.Screen name="about-burger-yard" />
       </Stack>
     </AppStoreProvider>

@@ -1,6 +1,7 @@
 import { DismissKeyboard } from "@/components/dismiss-keyboard";
 import { LoadingOverlay } from "@/components/loading-screen";
 import { Brand } from "@/constants/brand";
+import { useAccount } from "@/store/app-store";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
@@ -22,6 +23,7 @@ export default function SignUpScreen() {
   const [fullName, setFullName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [sending, setSending] = useState(false);
+  const { setAccount } = useAccount();
 
   const handleSendCode = () => {
     if (!fullName.trim() || !phoneNumber.trim()) {
@@ -31,6 +33,9 @@ export default function SignUpScreen() {
       );
       return;
     }
+
+    // Remembered so checkout and the profile default to it.
+    setAccount({ name: fullName.trim(), phone: phoneNumber.trim() });
 
     setSending(true);
     setTimeout(() => {

@@ -49,8 +49,30 @@ type NotificationsValue = {
   markAllRead: () => void;
 };
 
+/** Whatever the user told us at sign in or sign up, reused everywhere after. */
+export type Account = {
+  name: string;
+  /** National form, as typed, e.g. "054 392 7440". */
+  phone: string;
+};
+
+/** Only what is needed to show a saved card back to its owner. */
+export type SavedCard = {
+  last4: string;
+  expiry: string;
+  holder: string;
+};
+
+type AccountValue = {
+  account: Account;
+  setAccount: (next: Partial<Account>) => void;
+  card: SavedCard | null;
+  setCard: (card: SavedCard | null) => void;
+};
+
 const CartContext = createContext<CartValue | null>(null);
 const NotificationsContext = createContext<NotificationsValue | null>(null);
+const AccountContext = createContext<AccountValue | null>(null);
 
 function lineKey(productId: string, extras: string[]) {
   return extras.length ? `${productId}::${[...extras].sort().join("+")}` : productId;
@@ -68,6 +90,12 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
   // actually does something.
   const [lines, setLines] = useState<CartLine[]>([]);
   const [items, setItems] = useState<AppNotification[]>([]);
+  const [account, setAccountState] = useState<Account>({ name: "", phone: "" });
+  const [card, setCard] = useState<SavedCard | null>(null);
+
+  const setAccount = useCallback((next: Partial<Account>) => {
+    setAccountState((prev) => ({ ...prev, ...next }));
+  }, []);
 
   const addItem = useCallback(
     (productId: string, extras: string[] = [], quantity = 1) => {
@@ -155,13 +183,26 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
     [items, notify, markAllRead],
   );
 
-  return (
-    <CartContext.Provider value={cart}>
-      <NotificationsContext.Provider value={notifications}>
-        {children}
-      </NotificationsContext.Provider>
-    </CartContext.Provider>
+  const accountValue = useMemo<AccountValue>(
+    () => ({ account, setAccount, card, setCard }),
+    [account, setAccount, card],
   );
+
+  return (
+    <AccountContext.Provider value={accountValue}>
+      <CartContext.Provider value={cart}>
+        <NotificationsContext.Provider value={notifications}>
+          {children}
+        </NotificationsContext.Provider>
+      </CartContext.Provider>
+    </AccountContext.Provider>
+  );
+}
+
+export function useAccount() {
+  const value = useContext(AccountContext);
+  if (!value) throw new Error("useAccount must be used inside AppStoreProvider");
+  return value;
 }
 
 export function useCart() {

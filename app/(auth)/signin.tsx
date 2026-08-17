@@ -1,6 +1,7 @@
 import { DismissKeyboard } from "@/components/dismiss-keyboard";
 import { LoadingOverlay } from "@/components/loading-screen";
 import { Brand } from "@/constants/brand";
+import { useAccount } from "@/store/app-store";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
@@ -21,12 +22,16 @@ export default function SignInScreen() {
   const router = useRouter();
   const [phoneNumber, setPhoneNumber] = useState("");
   const [sending, setSending] = useState(false);
+  const { setAccount } = useAccount();
 
   const handleSendOtp = () => {
     if (!phoneNumber.trim()) {
       Alert.alert("Missing number", "Please enter your phone number.");
       return;
     }
+
+    // Remembered so checkout and the profile default to it.
+    setAccount({ phone: phoneNumber.trim() });
 
     setSending(true);
     setTimeout(() => {
