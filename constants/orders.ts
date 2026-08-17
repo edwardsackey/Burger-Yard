@@ -29,7 +29,7 @@ export const ORDERS: Order[] = [
     id: "1031",
     date: "12 Aug",
     status: "Completed",
-    items: "Double Cheese Burger, Loaded French Fries",
+    items: "Double Cheese Burger, French Fries",
     total: 140,
   },
 ];

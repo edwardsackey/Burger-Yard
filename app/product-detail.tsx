@@ -21,8 +21,8 @@ export default function ProductDetailScreen() {
   const [selected, setSelected] = useState<string[]>([]);
   const [favourite, setFavourite] = useState(false);
 
-  // Extras are toppings, so they only make sense on food.
-  const offersExtras = product.category !== "Drinks";
+  // Per product rather than per category: chips and drinks take no toppings.
+  const offersExtras = product.allowsExtras;
 
   const toggleExtra = (name: string) =>
     setSelected((prev) =>

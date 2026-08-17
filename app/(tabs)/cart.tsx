@@ -55,25 +55,36 @@ export default function CartScreen() {
                 const product = getProduct(line.productId);
                 return (
                   <View key={line.key} style={styles.card}>
-                    <View style={styles.thumbBox}>
-                      <Image
-                        source={product.image}
-                        style={styles.thumb}
-                        resizeMode={product.fit}
-                      />
-                    </View>
+                    {/* The thumbnail and text open the product so extras can
+                        be changed. The stepper stays outside this, so tapping
+                        a quantity button does not also open the product. */}
+                    <TouchableOpacity
+                      style={styles.tapArea}
+                      activeOpacity={0.7}
+                      onPress={() =>
+                        router.push(`/product-detail?id=${line.productId}`)
+                      }
+                    >
+                      <View style={styles.thumbBox}>
+                        <Image
+                          source={product.image}
+                          style={styles.thumb}
+                          resizeMode={product.fit}
+                        />
+                      </View>
 
-                    <View style={styles.cardInfo}>
-                      <Text style={styles.itemName}>{line.name}</Text>
-                      <Text style={styles.itemModifiers}>
-                        {line.extras.length
-                          ? `+ ${line.extras.join(", ")}`
-                          : "Standard"}
-                      </Text>
-                      <Text style={styles.itemPrice}>
-                        GHS {line.unitPrice * line.quantity}
-                      </Text>
-                    </View>
+                      <View style={styles.cardInfo}>
+                        <Text style={styles.itemName}>{line.name}</Text>
+                        <Text style={styles.itemModifiers}>
+                          {line.extras.length
+                            ? `+ ${line.extras.join(", ")}`
+                            : "Standard"}
+                        </Text>
+                        <Text style={styles.itemPrice}>
+                          GHS {line.unitPrice * line.quantity}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
 
                     <View style={styles.qtyControl}>
                       <TouchableOpacity
@@ -161,6 +172,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E5E7EB",
   },
+  tapArea: { flex: 1, flexDirection: "row", alignItems: "center" },
   thumbBox: {
     width: 56,
     height: 56,

@@ -17,6 +17,11 @@ export type Product = {
    * the bottle off, so they are letterboxed instead.
    */
   fit: "cover" | "contain";
+  /**
+   * Whether the extras list applies. The extras are burger toppings, so they
+   * are offered on the burgers and the wrap but not on chips or drinks.
+   */
+  allowsExtras: boolean;
 };
 
 export const CATEGORIES: Category[] = ["Burgers", "Sides", "Drinks"];
@@ -37,6 +42,7 @@ export const PRODUCTS: Product[] = [
     desc: "Beef patty, cheddar, lettuce, onions & yard sauce",
     image: require("@/assets/images/products/single-cheese-burger.jpg"),
     fit: "cover",
+    allowsExtras: true,
   },
   {
     id: "2",
@@ -47,6 +53,7 @@ export const PRODUCTS: Product[] = [
     desc: "Double beef patties, double cheese, caramelized onions",
     image: require("@/assets/images/products/double-cheese-burger.jpg"),
     fit: "cover",
+    allowsExtras: true,
   },
   {
     id: "3",
@@ -57,16 +64,18 @@ export const PRODUCTS: Product[] = [
     desc: "Crunchy fried chicken fillet, coleslaw & spicy mayo",
     image: require("@/assets/images/products/crispy-chicken-burger.jpg"),
     fit: "cover",
+    allowsExtras: true,
   },
   {
     id: "4",
-    name: "Loaded French Fries",
+    name: "French Fries",
     category: "Sides",
     price: 40,
     rating: "4.6",
-    desc: "Crispy golden fries topped with melted cheese and bits",
+    desc: "Crispy golden fries, lightly salted",
     image: require("@/assets/images/products/loaded-fries.jpg"),
     fit: "contain",
+    allowsExtras: false,
   },
   {
     id: "5",
@@ -77,6 +86,7 @@ export const PRODUCTS: Product[] = [
     desc: "Grilled chicken, crunchy veg & garlic sauce in warm pita",
     image: require("@/assets/images/products/shawarma.jpg"),
     fit: "contain",
+    allowsExtras: true,
   },
   {
     id: "6",
@@ -87,6 +97,7 @@ export const PRODUCTS: Product[] = [
     desc: "Chilled 500ml PET bottle",
     image: require("@/assets/images/products/coca-cola.jpg"),
     fit: "contain",
+    allowsExtras: false,
   },
   {
     id: "7",
@@ -97,6 +108,7 @@ export const PRODUCTS: Product[] = [
     desc: "Chilled 300ml refreshing soda",
     image: require("@/assets/images/products/fanta.jpg"),
     fit: "contain",
+    allowsExtras: false,
   },
   {
     id: "8",
@@ -107,6 +119,7 @@ export const PRODUCTS: Product[] = [
     desc: "Pineapple, apple & grape blend, served ice cold",
     image: require("@/assets/images/products/bb-cocktail.jpg"),
     fit: "contain",
+    allowsExtras: false,
   },
   {
     id: DEAL_ID,
@@ -117,6 +130,7 @@ export const PRODUCTS: Product[] = [
     desc: "2x Double Cheese Burger + Large Fries, saving GHS 60",
     image: require("@/assets/images/products/double-cheese-burger.jpg"),
     fit: "cover",
+    allowsExtras: true,
   },
 ];
 
