@@ -1,9 +1,18 @@
+import type { ImageSourcePropType } from "react-native";
+
 export type NetworkId = "mtn" | "telecel" | "at";
 
 export type Network = {
   id: NetworkId;
   label: string;
-  dot: string;
+  /** What the provider calls its wallet, for the payment method list. */
+  wallet: string;
+  /**
+   * The provider's own logo. Each one is pre-cropped to 3:2 with its brand
+   * background already in the artwork, so the tiles line up at one size and
+   * the provider is recognised without reading the name.
+   */
+  logo: ImageSourcePropType;
   /** National prefixes, written with the leading zero. */
   prefixes: string[];
 };
@@ -12,25 +21,36 @@ export const NETWORKS: Network[] = [
   {
     id: "mtn",
     label: "MTN",
-    dot: "🟡",
+    wallet: "MTN Mobile Money",
+    logo: require("@/assets/images/networks/mtn.png"),
     prefixes: ["024", "025", "053", "054", "055", "059"],
   },
   {
     id: "telecel",
     label: "Telecel",
-    dot: "🔴",
+    wallet: "Telecel Cash",
+    logo: require("@/assets/images/networks/telecel.png"),
     prefixes: ["020", "050"],
   },
   {
     id: "at",
     label: "AT",
-    dot: "🔵",
+    wallet: "AT Money",
+    logo: require("@/assets/images/networks/at.png"),
     prefixes: ["026", "027", "056", "057"],
   },
 ];
 
+export function getNetwork(id: NetworkId): Network {
+  return NETWORKS.find((n) => n.id === id) ?? NETWORKS[0];
+}
+
 export function networkLabel(id: NetworkId): string {
-  return NETWORKS.find((n) => n.id === id)?.label ?? id;
+  return getNetwork(id).label;
+}
+
+export function networkLogo(id: NetworkId): ImageSourcePropType {
+  return getNetwork(id).logo;
 }
 
 /**

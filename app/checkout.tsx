@@ -11,6 +11,7 @@ import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -177,7 +178,12 @@ export default function CheckoutScreen() {
                   style={[styles.networkRow, active && styles.networkActive]}
                   onPress={() => setNetwork(n.id)}
                 >
-                  <Text style={styles.networkDot}>{n.dot}</Text>
+                  <Image
+                    source={n.logo}
+                    style={styles.networkLogo}
+                    resizeMode="cover"
+                    accessibilityLabel={n.label}
+                  />
                   <Text
                     style={[
                       styles.networkLabel,
@@ -415,7 +421,15 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   networkActive: { borderColor: "#D62828", backgroundColor: "#FFF5F5" },
-  networkDot: { fontSize: 12, marginRight: 8 },
+  networkLogo: {
+    width: 51,
+    height: 34,
+    borderRadius: 7,
+    marginRight: 10,
+    // The artwork carries the brand colour right to its edge, so clip it
+    // rather than let square corners sit inside a rounded row.
+    overflow: "hidden",
+  },
   networkLabel: { flex: 1, fontSize: 13, fontWeight: "600", color: "#444" },
   networkLabelActive: { color: "#111" },
   radioOuterSm: {

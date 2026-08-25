@@ -1,8 +1,10 @@
 import { TopSheet } from "@/components/top-sheet";
+import { NETWORKS, getNetwork, type NetworkId } from "@/constants/networks";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
     Alert,
+    Image,
     ScrollView,
     StyleSheet,
     Text,
@@ -12,27 +14,26 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+/**
+ * A saved wallet. It stores the network rather than a display name so the
+ * logo, the wallet name and the row can never drift apart.
+ */
+type Method = {
+  id: string;
+  network: NetworkId;
+  val: string;
+  default: boolean;
+};
+
 export default function PaymentMethodsScreen() {
   const router = useRouter();
-  const [methods, setMethods] = useState([
-    {
-      id: "1",
-      name: "MTN Mobile Money",
-      type: "MoMo",
-      val: "+233 54 ••• 7440",
-      default: true,
-    },
-    {
-      id: "2",
-      name: "Telecel Cash",
-      type: "MoMo",
-      val: "+233 20 ••• 1928",
-      default: false,
-    },
+  const [methods, setMethods] = useState<Method[]>([
+    { id: "1", network: "mtn", val: "+233 54 ••• 7440", default: true },
+    { id: "2", network: "telecel", val: "+233 20 ••• 1928", default: false },
   ]);
 
   const [modalVisible, setModalVisible] = useState(false);
-  const [providerName, setProviderName] = useState("MTN MoMo");
+  const [provider, setProvider] = useState<NetworkId>("mtn");
   const [accountNumber, setAccountNumber] = useState("");
 
   const handleSetDefault = (id: string) => {
@@ -48,10 +49,9 @@ export default function PaymentMethodsScreen() {
       return;
     }
 
-    const newMethod = {
+    const newMethod: Method = {
       id: Date.now().toString(),
-      name: providerName,
-      type: "MoMo",
+      network: provider,
       val: accountNumber,
       default: methods.length === 0,
     };
@@ -83,14 +83,24 @@ export default function PaymentMethodsScreen() {
             style={[styles.card, item.default && styles.cardActive]}
           >
             <View style={styles.cardTop}>
-              <Text style={styles.payName}>{item.name}</Text>
+              <Image
+                source={getNetwork(item.network).logo}
+                style={styles.cardLogo}
+                resizeMode="cover"
+                accessibilityLabel={getNetwork(item.network).label}
+              />
+              <View style={styles.cardText}>
+                <Text style={styles.payName}>
+                  {getNetwork(item.network).wallet}
+                </Text>
+                <Text style={styles.payVal}>{item.val}</Text>
+              </View>
               {item.default && (
                 <View style={styles.defaultBadge}>
                   <Text style={styles.defaultText}>DEFAULT</Text>
                 </View>
               )}
             </View>
-            <Text style={styles.payVal}>{item.val}</Text>
 
             <View style={styles.cardActions}>
               {!item.default ? (
@@ -143,22 +153,28 @@ export default function PaymentMethodsScreen() {
       >
         <Text style={styles.label}>Provider</Text>
         <View style={styles.providerRow}>
-          {["MTN MoMo", "Telecel Cash", "AT Cash"].map((p) => (
+          {NETWORKS.map((n) => (
             <TouchableOpacity
-              key={p}
+              key={n.id}
               style={[
                 styles.providerPill,
-                providerName === p && styles.providerPillActive,
+                provider === n.id && styles.providerPillActive,
               ]}
-              onPress={() => setProviderName(p)}
+              onPress={() => setProvider(n.id)}
             >
+              <Image
+                source={n.logo}
+                style={styles.providerLogo}
+                resizeMode="cover"
+                accessibilityLabel={n.label}
+              />
               <Text
                 style={[
                   styles.providerText,
-                  providerName === p && styles.providerTextActive,
+                  provider === n.id && styles.providerTextActive,
                 ]}
               >
-                {p}
+                {n.wallet}
               </Text>
             </TouchableOpacity>
           ))}
@@ -204,10 +220,12 @@ const styles = StyleSheet.create({
   cardActive: { borderColor: "#D62828", borderWidth: 1.5 },
   cardTop: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 4,
+    gap: 12,
+    marginBottom: 12,
   },
+  cardLogo: { width: 54, height: 36, borderRadius: 8, overflow: "hidden" },
+  cardText: { flex: 1 },
   payName: { fontSize: 15, fontWeight: "bold", color: "#111" },
   defaultBadge: {
     backgroundColor: "#FEE2E2",
@@ -216,7 +234,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   defaultText: { fontSize: 9, fontWeight: "bold", color: "#D62828" },
-  payVal: { fontSize: 13, color: "#666", marginBottom: 12 },
+  payVal: { fontSize: 13, color: "#666", marginTop: 2 },
   cardActions: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -262,14 +280,22 @@ const styles = StyleSheet.create({
   providerPill: {
     flex: 1,
     paddingVertical: 10,
+    paddingHorizontal: 6,
     borderRadius: 10,
     backgroundColor: "#F3F4F6",
     alignItems: "center",
+    gap: 7,
     borderWidth: 1,
     borderColor: "#E5E7EB",
   },
   providerPillActive: { backgroundColor: "#D62828", borderColor: "#D62828" },
-  providerText: { fontSize: 12, fontWeight: "bold", color: "#444" },
+  providerLogo: { width: 48, height: 32, borderRadius: 7, overflow: "hidden" },
+  providerText: {
+    fontSize: 11,
+    fontWeight: "bold",
+    color: "#444",
+    textAlign: "center",
+  },
   providerTextActive: { color: "#FFF" },
   input: {
     backgroundColor: "#F3F4F6",
