@@ -17,7 +17,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const RESEND_SECONDS = 28;
+/** Two minutes to key the code in before a resend is offered. */
+const RESEND_SECONDS = 120;
 
 /** SCR/OTP Verify (node 2:1459). */
 export default function OtpScreen() {
@@ -79,7 +80,7 @@ export default function OtpScreen() {
     inputs.current[0]?.focus();
   };
 
-  const timer = `0:${String(secondsLeft).padStart(2, "0")}`;
+  const timer = `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")}`;
 
   if (verifying) return <LoadingOverlay label="Verifying your number" />;
 

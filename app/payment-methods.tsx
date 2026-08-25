@@ -1,8 +1,8 @@
+import { TopSheet } from "@/components/top-sheet";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
     Alert,
-    Modal,
     ScrollView,
     StyleSheet,
     Text,
@@ -120,62 +120,60 @@ export default function PaymentMethodsScreen() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Add Method Modal */}
-      <Modal visible={modalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Add Payment Method</Text>
-
-            <Text style={styles.label}>Provider</Text>
-            <View style={styles.providerRow}>
-              {["MTN MoMo", "Telecel Cash", "AT Cash"].map((p) => (
-                <TouchableOpacity
-                  key={p}
-                  style={[
-                    styles.providerPill,
-                    providerName === p && styles.providerPillActive,
-                  ]}
-                  onPress={() => setProviderName(p)}
-                >
-                  <Text
-                    style={[
-                      styles.providerText,
-                      providerName === p && styles.providerTextActive,
-                    ]}
-                  >
-                    {p}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Text style={styles.label}>Account / Phone Number</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. 0543927440"
-              placeholderTextColor="#999"
-              keyboardType="phone-pad"
-              value={accountNumber}
-              onChangeText={setAccountNumber}
-            />
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.cancelBtn}
-                onPress={() => setModalVisible(false)}
+      {/* Comes down from the top, and a tap anywhere inside puts the
+          number pad away so the buttons stay reachable. */}
+      <TopSheet
+        visible={modalVisible}
+        title="Add payment method"
+        subtitle="Mobile money is charged at checkout."
+        onClose={() => setModalVisible(false)}
+        footer={
+          <>
+            <TouchableOpacity
+              style={styles.cancelBtn}
+              onPress={() => setModalVisible(false)}
+            >
+              <Text style={styles.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.saveBtn} onPress={handleAddMethod}>
+              <Text style={styles.saveText}>Save method</Text>
+            </TouchableOpacity>
+          </>
+        }
+      >
+        <Text style={styles.label}>Provider</Text>
+        <View style={styles.providerRow}>
+          {["MTN MoMo", "Telecel Cash", "AT Cash"].map((p) => (
+            <TouchableOpacity
+              key={p}
+              style={[
+                styles.providerPill,
+                providerName === p && styles.providerPillActive,
+              ]}
+              onPress={() => setProviderName(p)}
+            >
+              <Text
+                style={[
+                  styles.providerText,
+                  providerName === p && styles.providerTextActive,
+                ]}
               >
-                <Text style={styles.cancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.saveBtn}
-                onPress={handleAddMethod}
-              >
-                <Text style={styles.saveText}>Save Method</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+                {p}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
-      </Modal>
+
+        <Text style={styles.label}>Account or phone number</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="e.g. 0543927440"
+          placeholderTextColor="#9CA3AF"
+          keyboardType="phone-pad"
+          value={accountNumber}
+          onChangeText={setAccountNumber}
+        />
+      </TopSheet>
     </SafeAreaView>
   );
 }
