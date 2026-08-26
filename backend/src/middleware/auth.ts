@@ -26,3 +26,21 @@ export const authenticate = (req: AuthRequest, res: Response, next: NextFunction
     res.status(401).json({ message: 'Token is not valid' });
   }
 };
+
+// Owner-only screens: dashboard, reports, payments, staff management.
+export const requireOwner = (req: AuthRequest, res: Response, next: NextFunction): void => {
+  if (req.user?.role !== 'OWNER') {
+    res.status(403).json({ message: 'Access denied. Owner only.' });
+    return;
+  }
+  next();
+};
+
+// Everything else in the admin console: orders, menu, customers.
+export const requireStaffOrOwner = (req: AuthRequest, res: Response, next: NextFunction): void => {
+  if (req.user?.role !== 'OWNER' && req.user?.role !== 'STAFF') {
+    res.status(403).json({ message: 'Access denied. Staff or owner only.' });
+    return;
+  }
+  next();
+};

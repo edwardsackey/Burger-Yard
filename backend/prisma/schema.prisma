@@ -43,7 +43,19 @@ model Address {
 
 enum Role {
   CUSTOMER
-  ADMIN
+  STAFF
+  OWNER
+}
+
+// Staff sign in with a name + 4-digit PIN, not a password — kept separate
+// from User rather than overloading it with two different auth schemes.
+model Staff {
+  id        Int      @id @default(autoincrement())
+  name      String
+  phone     String
+  pinHash   String
+  active    Boolean  @default(true)
+  invitedAt DateTime @default(now())
 }
 
 // Single-shop app — no restaurant-selection concept anywhere in the frontend.

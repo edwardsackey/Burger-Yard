@@ -69,8 +69,15 @@ unused multi-tenant complexity:
 
 ## Current schema (Prisma models)
 
-- **`User`** — customers, and (currently) admin accounts via `role`. Phone
-  is the unique login identifier; email/password are optional legacy fields.
+- **`User`** — `role` is `CUSTOMER | STAFF | OWNER`. For customers, phone is
+  the login identifier and email/password are optional legacy fields. The
+  **owner** signs in via email/password on this same model (`role: OWNER`) —
+  there's exactly one real owner account per business, created directly in
+  the database, not through a signup screen.
+- **`Staff`** — separate from `User` entirely, since staff sign in with a
+  name + 4-digit PIN, not a password. Only `pinHash` is ever stored; the
+  plaintext PIN exists only in the API response the moment it's created or
+  regenerated, then never again.
 - **`Address`** — a user's saved delivery addresses (`label`, `details`,
   `city`, `isDefault`). Exactly one address per user is ever marked default
   (enforced in the controller, not the schema).
@@ -105,17 +112,17 @@ unused multi-tenant complexity:
 | `GET /api/payments/verify/:reference` | Authoritative payment status check (see above) |
 | `POST /api/payments/webhook` | Paystack webhook (production path) |
 | `GET /api/places/nearby-landmark` | Map-tap → landmark + city lookup |
-| `POST /api/admin/menu`, `GET /api/admin/orders`, `PUT /api/admin/orders/:id/status` | Bare-bones admin endpoints — see Roadmap, the real admin console isn't wired to these yet |
+| `POST /api/admin/menu`, `GET /api/admin/orders`, `PUT /api/admin/orders/:id/status` | Staff-or-owner. `getAllOrders` and the status update both `omit` `deliveryCode` |
+| `POST /api/admin/auth/owner-login` | Owner email/password login |
+| `GET /api/admin/auth/active-staff` | Public — name+id only, for the staff sign-in picker |
+| `POST /api/admin/auth/staff-login` | Staff PIN login (`staffId` + `pin`) |
+| `GET/POST/PUT/DELETE /api/admin/staff`, `POST /:id/regenerate-pin` | Owner-only staff management. A PIN is only ever returned in plaintext once, from `createStaff`/`regenerateStaffPin` — never retrievable afterward |
 
 ## Roadmap — what's still ahead
 
-The admin console (owner/staff dashboard) in the frontend is currently
-**100% mock data** — none of it is wired to the backend yet. Building that
-out is the next major phase:
+Admin auth (owner login + staff PIN login) is now real — see Changelog. What's
+still mock or unbuilt:
 
-- Real owner login + staff PIN-based login (currently mocked client-side,
-  including plaintext demo credentials — must not ship like that)
-- Staff accounts as their own model (name, phone, hashed PIN, active flag)
 - Menu management (category, availability, image upload) — `MenuItem` needs
   these fields added when this work starts
 - Admin views for orders, customers, payments, and reports, backed by real
@@ -161,3 +168,10 @@ integrations, new endpoints, breaking changes to existing ones.
   order-placed, and order-tracking now share the real order id end to end).
   Live rider location and delivery-code verification are intentionally not
   built yet — see Roadmap.
+- **Real admin auth**, replacing the mock `AdminSession.tsx` (which had a
+  plaintext owner password and staff PINs hardcoded in the shipped JS
+  bundle). Split `Role` into `CUSTOMER | STAFF | OWNER` (was
+  `CUSTOMER | ADMIN`); added a `Staff` model; added owner login, staff PIN
+  login, and owner-only staff CRUD. Created the one real owner account
+  directly in the database (email/password, not a signup flow — see the
+  `User` schema note above for why).

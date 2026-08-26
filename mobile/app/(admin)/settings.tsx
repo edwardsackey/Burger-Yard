@@ -12,13 +12,9 @@ import {
 } from "@/components/admin/ui";
 import { Admin } from "@/constants/admin-theme";
 import { BRAND } from "@/constants/menu-catalog";
-import {
-  OWNER_LOGINS,
-  useAdminSession,
-  type StaffMember,
-} from "@/context/AdminSession";
+import { useAdminSession, type StaffMember } from "@/context/AdminSession";
 import { useResponsive } from "@/hooks/use-responsive";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Image,
   Linking,
@@ -32,32 +28,38 @@ import {
 export default function AdminSettingsScreen() {
   const { isPhone } = useResponsive();
   const { confirm, notify } = useDialog();
-  const { user, staff, addStaff, updateStaff, removeStaff, regenerateCode } =
+  const { user, staff, loadStaff, addStaff, updateStaff, removeStaff, regeneratePin } =
     useAdminSession();
 
   const isOwner = user?.role === "owner";
 
+  useEffect(() => {
+    if (isOwner) loadStaff();
+  }, [isOwner, loadStaff]);
+
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  /** The member whose invite is being shown after onboarding. */
-  const [invite, setInvite] = useState<StaffMember | null>(null);
+  /** The member + freshly (re)generated PIN being shown after onboarding.
+   * The PIN only ever exists here, right after being issued — it's hashed
+   * server-side and can never be retrieved again after this. */
+  const [invite, setInvite] = useState<{ member: StaffMember; pin: string } | null>(null);
 
-  const inviteText = (member: StaffMember) =>
+  const inviteText = (member: StaffMember, pin: string) =>
     `Hi ${member.name.split(" ")[0]}, you have been added to The Burger Yard admin console.\n\n` +
     `Open the console, choose "Log in as Staff", pick your name and enter this code:\n\n` +
-    `${member.code}\n\n` +
+    `${pin}\n\n` +
     `Keep it to yourself. It only works for your name.`;
 
-  const sendInvite = (member: StaffMember, via: "whatsapp" | "sms") => {
-    const body = encodeURIComponent(inviteText(member));
+  const sendInvite = (member: StaffMember, pin: string, via: "whatsapp" | "sms") => {
+    const body = encodeURIComponent(inviteText(member, pin));
     const intl = `233${member.phone.replace(/^0/, "")}`;
     Linking.openURL(
       via === "whatsapp" ? `https://wa.me/${intl}?text=${body}` : `sms:${member.phone}?body=${body}`,
     );
   };
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!name.trim()) {
       notify({ title: "Name required", message: "Enter the worker's name." });
       return;
@@ -69,11 +71,11 @@ export default function AdminSettingsScreen() {
       });
       return;
     }
-    const created = addStaff(name, phone);
+    const created = await addStaff(name, phone);
     if (!created) {
       notify({
         title: "Could not add",
-        message: "No free code available. Remove an old member first.",
+        message: "Please try again.",
       });
       return;
     }
@@ -90,7 +92,7 @@ export default function AdminSettingsScreen() {
       confirmLabel: "Remove",
       destructive: true,
     });
-    if (ok) removeStaff(member.id);
+    if (ok) await removeStaff(member.id);
   };
 
   /** Blocking keeps the record but refuses the code at sign in. */
@@ -104,15 +106,17 @@ export default function AdminSettingsScreen() {
         destructive: true,
         icon: "slash",
       });
-      if (ok) updateStaff(member.id, { active: false });
+      if (ok) await updateStaff(member.id, { active: false });
     } else {
-      updateStaff(member.id, { active: true });
+      await updateStaff(member.id, { active: true });
     }
   };
 
-  const newCode = (member: StaffMember) => {
-    const code = regenerateCode(member.id);
-    if (code) setInvite({ ...member, code });
+  // The PIN is hashed server-side, so there's no "resend the same code" —
+  // sending an invite always issues a fresh one.
+  const newCode = async (member: StaffMember) => {
+    const pin = await regeneratePin(member.id);
+    if (pin) setInvite({ member, pin });
   };
 
   return (
@@ -153,40 +157,6 @@ export default function AdminSettingsScreen() {
           </Card>
         </FadeIn>
 
-        {/* Manager logins - owner only */}
-        {isOwner && (
-          <FadeIn delay={60}>
-            <Card>
-              <SectionTitle
-                title="Manager logins"
-                subtitle="Two addresses, identical access"
-              />
-              <View style={styles.loginRow}>
-                <View style={styles.loginIcon}>
-                  <Icon name="mail" size={15} color={Admin.red} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.loginLabel}>Everyday</Text>
-                  <Text style={styles.loginValue}>{OWNER_LOGINS.primary}</Text>
-                </View>
-              </View>
-              <View style={styles.loginRow}>
-                <View style={styles.loginIcon}>
-                  <Icon name="life-buoy" size={15} color={Admin.red} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.loginLabel}>Standby / recovery</Text>
-                  <Text style={styles.loginValue}>{OWNER_LOGINS.recovery}</Text>
-                </View>
-              </View>
-              <Text style={styles.loginHint}>
-                Keep the standby address on a different mailbox. If the everyday
-                password is lost, it is the way back in.
-              </Text>
-            </Card>
-          </FadeIn>
-        )}
-
         {/* Team - owner only */}
         {isOwner && (
           <FadeIn delay={110}>
@@ -224,13 +194,12 @@ export default function AdminSettingsScreen() {
                         )}
                       </View>
                       <Text style={styles.memberMeta}>
-                        {member.phone} · invited {member.invitedOn}
+                        {member.phone} · invited{" "}
+                        {new Date(member.invitedAt).toLocaleDateString([], {
+                          day: "numeric",
+                          month: "short",
+                        })}
                       </Text>
-                    </View>
-
-                    <View style={styles.codeChip}>
-                      <Icon name="key" size={11} color={Admin.textMuted} />
-                      <Text style={styles.codeChipText}>{member.code}</Text>
                     </View>
 
                     <View style={styles.memberActions}>
@@ -241,8 +210,8 @@ export default function AdminSettingsScreen() {
                       />
                       <IconButton
                         name="send"
-                        label={`Send invite to ${member.name}`}
-                        onPress={() => setInvite(member)}
+                        label={`Send a new code to ${member.name}`}
+                        onPress={() => newCode(member)}
                       />
                       <IconButton
                         name="trash-2"
@@ -341,7 +310,7 @@ export default function AdminSettingsScreen() {
       {/* Invite, shown after onboarding or when resending */}
       <ModalSheet
         visible={invite !== null}
-        title={`Invite for ${invite?.name ?? ""}`}
+        title={`Invite for ${invite?.member.name ?? ""}`}
         subtitle="Send this to them. It is their only credential."
         onClose={() => setInvite(null)}
         footer={
@@ -351,7 +320,7 @@ export default function AdminSettingsScreen() {
               <Button
                 label="Send on WhatsApp"
                 icon="message-circle"
-                onPress={() => sendInvite(invite, "whatsapp")}
+                onPress={() => sendInvite(invite.member, invite.pin, "whatsapp")}
               />
             ) : null}
           </>
@@ -361,14 +330,15 @@ export default function AdminSettingsScreen() {
           <>
             <View style={styles.codeDisplay}>
               <Text style={styles.codeDisplayLabel}>THEIR CODE</Text>
-              <Text style={styles.codeDisplayValue}>{invite.code}</Text>
+              <Text style={styles.codeDisplayValue}>{invite.pin}</Text>
               <Text style={styles.codeDisplayHint}>
-                Works only when {invite.name.split(" ")[0]} is the selected name.
+                Works only when {invite.member.name.split(" ")[0]} is the selected name.
+                Shown once — it can't be viewed again after you close this.
               </Text>
             </View>
 
             <View style={styles.messageBox}>
-              <Text style={styles.messageText}>{inviteText(invite)}</Text>
+              <Text style={styles.messageText}>{inviteText(invite.member, invite.pin)}</Text>
             </View>
 
             <View style={styles.inviteActions}>
@@ -377,7 +347,7 @@ export default function AdminSettingsScreen() {
                 icon="message-square"
                 variant="secondary"
                 size="sm"
-                onPress={() => sendInvite(invite, "sms")}
+                onPress={() => sendInvite(invite.member, invite.pin, "sms")}
                 style={{ flex: 1 }}
               />
               <Button
@@ -385,7 +355,7 @@ export default function AdminSettingsScreen() {
                 icon="refresh-cw"
                 variant="secondary"
                 size="sm"
-                onPress={() => newCode(invite)}
+                onPress={() => newCode(invite.member)}
                 style={{ flex: 1 }}
               />
             </View>
@@ -421,19 +391,6 @@ const styles = StyleSheet.create({
   roleTagOwner: { backgroundColor: Admin.redSoft },
   roleTagText: { fontSize: 11.5, fontWeight: "700", color: Admin.textMuted },
 
-  loginRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 12 },
-  loginIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 9,
-    backgroundColor: Admin.redSoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  loginLabel: { fontSize: 11, fontWeight: "700", color: Admin.textFaint, letterSpacing: 0.4 },
-  loginValue: { fontSize: 13.5, color: Admin.text, fontWeight: "600", marginTop: 2 },
-  loginHint: { fontSize: 11.5, color: Admin.textMuted, lineHeight: 17, marginTop: 4 },
-
   memberRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -465,21 +422,6 @@ const styles = StyleSheet.create({
   },
   blockedTagText: { fontSize: 9.5, fontWeight: "800", color: Admin.red },
   memberMeta: { fontSize: 11.5, color: Admin.textMuted, marginTop: 2 },
-  codeChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 7,
-    backgroundColor: Admin.divider,
-  },
-  codeChipText: {
-    fontSize: 12.5,
-    fontWeight: "800",
-    color: Admin.text,
-    letterSpacing: 1.5,
-  },
   memberActions: { flexDirection: "row", alignItems: "center", gap: 8 },
 
   bizRow: { flexDirection: "row", alignItems: "center", gap: 13, marginBottom: 16 },

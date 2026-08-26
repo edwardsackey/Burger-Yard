@@ -3,9 +3,8 @@ import { Admin } from "@/constants/admin-theme";
 import { BRAND } from "@/constants/menu-catalog";
 import {
   HOME_FOR,
-  OWNER_LOGINS,
   useAdminSession,
-  type StaffMember,
+  type ActiveStaffOption,
 } from "@/context/AdminSession";
 import { useResponsive } from "@/hooks/use-responsive";
 import { useRouter } from "expo-router";
@@ -31,7 +30,7 @@ export default function AdminAuthScreen() {
   const [mode, setMode] = useState<Mode>("choose");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [selected, setSelected] = useState<StaffMember | null>(null);
+  const [selected, setSelected] = useState<ActiveStaffOption | null>(null);
   const [digits, setDigits] = useState(["", "", "", ""]);
   const [error, setError] = useState("");
   const codeInputs = useRef<(TextInput | null)[]>([]);
@@ -44,8 +43,8 @@ export default function AdminAuthScreen() {
     setDigits(["", "", "", ""]);
   };
 
-  const handleManager = () => {
-    const result = signInOwner(email, password);
+  const handleManager = async () => {
+    const result = await signInOwner(email, password);
     if (!result.ok) {
       setError(result.error ?? "Sign in failed.");
       return;
@@ -53,8 +52,8 @@ export default function AdminAuthScreen() {
     router.replace(HOME_FOR.owner as never);
   };
 
-  const submitCode = (member: StaffMember, code: string) => {
-    const result = signInStaff(member.id, code);
+  const submitCode = async (member: ActiveStaffOption, code: string) => {
+    const result = await signInStaff(member.id, code);
     if (!result.ok) {
       setError(result.error ?? "Sign in failed.");
       setDigits(["", "", "", ""]);
@@ -210,7 +209,7 @@ export default function AdminAuthScreen() {
               <Text style={styles.label}>Email address</Text>
               <TextInput
                 style={styles.input}
-                placeholder={OWNER_LOGINS.primary}
+                placeholder="owner@yourbusiness.com"
                 placeholderTextColor={Admin.textFaint}
                 value={email}
                 onChangeText={(v) => {
@@ -245,16 +244,6 @@ export default function AdminAuthScreen() {
                 onPress={handleManager}
                 style={{ marginTop: 6 }}
               />
-
-              <View style={styles.demoBox}>
-                <Text style={styles.demoTitle}>MANAGER LOGINS</Text>
-                <Text style={styles.demoLine}>
-                  Everyday: {OWNER_LOGINS.primary} / owner123
-                </Text>
-                <Text style={styles.demoLine}>
-                  Standby: {OWNER_LOGINS.recovery} / recovery123
-                </Text>
-              </View>
             </FadeIn>
           )}
 
@@ -529,16 +518,4 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 16,
   },
-
-  demoBox: {
-    marginTop: 24,
-    padding: 14,
-    borderRadius: 10,
-    backgroundColor: "#F7F8FA",
-    borderWidth: 1,
-    borderColor: Admin.border,
-    gap: 5,
-  },
-  demoTitle: { fontSize: 10, fontWeight: "800", color: Admin.text, letterSpacing: 0.6 },
-  demoLine: { fontSize: 11.5, color: Admin.textMuted, lineHeight: 16 },
 });

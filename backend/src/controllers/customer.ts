@@ -90,15 +90,17 @@ export const getOrderStatus = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    // Ensure users can only view their own orders unless they are admin
-    if (order.userId !== req.user!.id && req.user!.role !== 'ADMIN') {
+    const isStaffOrOwner = req.user!.role === 'OWNER' || req.user!.role === 'STAFF';
+
+    // Ensure users can only view their own orders unless they're admin-side
+    if (order.userId !== req.user!.id && !isStaffOrOwner) {
       res.status(403).json({ message: 'Unauthorized' });
       return;
     }
 
-    // The delivery code is the customer's own proof-of-receipt — an admin
-    // viewing the same order (e.g. for support) must never see it.
-    if (req.user!.role === 'ADMIN') {
+    // The delivery code is the customer's own proof-of-receipt — no one on
+    // the admin side (e.g. viewing an order for support) may see it.
+    if (isStaffOrOwner) {
       const { deliveryCode, ...rest } = order;
       res.json(rest);
       return;
