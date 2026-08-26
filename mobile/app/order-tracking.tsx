@@ -11,21 +11,29 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const STAGES = ["Order accepted", "Preparing your food", "On the way", "Delivered"] as const;
+const STAGES = [
+  "Order accepted",
+  "Preparing your food",
+  "Ready for pickup",
+  "On the way",
+  "Delivered",
+] as const;
 
-// Kitchen/delivery statuses map onto the four customer-facing stages above.
+// Kitchen/delivery statuses map onto the five customer-facing stages above.
 const STAGE_INDEX: Record<string, number> = {
-  PENDING: 0,
+  NEW: 0,
   PREPARING: 1,
-  OUT_FOR_DELIVERY: 2,
-  DELIVERED: 3,
+  READY: 2,
+  OUT_FOR_DELIVERY: 3,
+  COMPLETED: 4,
 };
 
 const STATUS_TITLE: Record<string, string> = {
-  PENDING: "Order accepted",
+  NEW: "Order accepted",
   PREPARING: "Preparing your food",
+  READY: "Ready for pickup",
   OUT_FOR_DELIVERY: "On the way",
-  DELIVERED: "Delivered",
+  COMPLETED: "Delivered",
   CANCELLED: "Order cancelled",
 };
 

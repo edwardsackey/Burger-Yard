@@ -1,6 +1,16 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import prisma from '../prisma';
+import { sendPushNotification } from '../services/push';
+
+const STATUS_MESSAGE: Record<string, string> = {
+  NEW: 'Your order has been accepted by the kitchen.',
+  PREPARING: 'Your order is being prepared.',
+  READY: 'Your order is packed and waiting for a rider.',
+  OUT_FOR_DELIVERY: 'Your order is on the way!',
+  COMPLETED: 'Your order has been delivered. Enjoy!',
+  CANCELLED: 'Your order was cancelled.',
+};
 
 export const addMenuItem = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -76,7 +86,7 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response): Promis
   try {
     const orderId = parseInt(req.params.id);
     const { status, riderName, riderPhone, riderVehicle } = req.body;
-    // status should be one of: PENDING, PREPARING, OUT_FOR_DELIVERY, DELIVERED, CANCELLED
+    // status should be one of: NEW, PREPARING, READY, OUT_FOR_DELIVERY, COMPLETED, CANCELLED
 
     const order = await prisma.order.update({
       where: { id: orderId },
@@ -87,8 +97,19 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response): Promis
         riderVehicle: riderVehicle ?? undefined,
       },
       omit: { deliveryCode: true },
+      include: { user: { select: { pushToken: true } } },
     });
-    res.json(order);
+
+    if (status && STATUS_MESSAGE[status]) {
+      // Fire-and-forget — a failed push must never block the status update
+      // itself from succeeding.
+      sendPushNotification(order.user.pushToken, 'Order update', STATUS_MESSAGE[status], {
+        orderId: order.id,
+      });
+    }
+
+    const { user, ...rest } = order;
+    res.json(rest);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }

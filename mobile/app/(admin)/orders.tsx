@@ -1,3 +1,4 @@
+import { apiFetch } from "@/api";
 import {
   Button,
   Card,
@@ -10,8 +11,9 @@ import { useDialog } from "@/components/admin/dialog";
 import { Admin } from "@/constants/admin-theme";
 import { imageForName } from "@/constants/menu-catalog";
 import { useResponsive } from "@/hooks/use-responsive";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   Linking,
   Pressable,
@@ -25,6 +27,23 @@ import {
 /** The kitchen flow, in order. Accepting moves an order one step along it. */
 const FLOW = ["New", "Preparing", "Ready", "Out for delivery", "Completed"] as const;
 type Status = (typeof FLOW)[number] | "Cancelled";
+
+const BACKEND_FLOW = ["NEW", "PREPARING", "READY", "OUT_FOR_DELIVERY", "COMPLETED"] as const;
+
+const STATUS_TO_DISPLAY: Record<string, Status> = {
+  NEW: "New",
+  PREPARING: "Preparing",
+  READY: "Ready",
+  OUT_FOR_DELIVERY: "Out for delivery",
+  COMPLETED: "Completed",
+  CANCELLED: "Cancelled",
+};
+
+const PAYMENT_TO_DISPLAY: Record<string, string> = {
+  MOMO: "MoMo",
+  CARD: "Card",
+  CASH: "Cash",
+};
 
 type OrderItem = { qty: string; name: string; modifier: string; price: string };
 
@@ -45,47 +64,47 @@ type Order = {
   paid: boolean;
 };
 
-const SEED: Order[] = [
-  {
-    id: "#1042", timeAgo: "2 min ago", status: "New", customer: "Ama Mensah",
-    location: "Ayeduase New Site", summary: "2x Single Cheese (+Bacon), Chicken Burger, Coke",
-    total: "GHS 195", payment: "MoMo", phone: "0543927440",
-    addressDetails: "Ayeduase New Site · near the blue gate, 2nd house",
-    items: [
-      { qty: "1x", name: "Single Cheese Burger", modifier: "+ Bacon (GHS 15)", price: "GHS 85" },
-      { qty: "1x", name: "Chicken Burger", modifier: "", price: "GHS 95" },
-    ],
-    subtotal: "GHS 180", delivery: "GHS 15", paid: true,
-  },
-  {
-    id: "#1041", timeAgo: "6 min ago", status: "Preparing", customer: "Kwesi Boateng",
-    location: "Kotei", summary: "Single Cheese Burger", total: "GHS 70",
-    payment: "Cash", phone: "0244244123", addressDetails: "Kotei main road",
-    items: [{ qty: "1x", name: "Single Cheese Burger", modifier: "", price: "GHS 70" }],
-    subtotal: "GHS 55", delivery: "GHS 15", paid: false,
-  },
-  {
-    id: "#1040", timeAgo: "11 min ago", status: "Ready", customer: "Adwoa Owusu",
-    location: "Ayeduase Gate", summary: "Chicken Burger x Fries", total: "GHS 120",
-    payment: "MoMo", phone: "0245012345", addressDetails: "Ayeduase Gate opposite hostel",
-    items: [{ qty: "1x", name: "Chicken Burger x Fries", modifier: "", price: "GHS 120" }],
-    subtotal: "GHS 105", delivery: "GHS 15", paid: true,
-  },
-  {
-    id: "#1039", timeAgo: "18 min ago", status: "Out for delivery", customer: "Yaw Darko",
-    location: "Bomso", summary: "Double Cheese Burger", total: "GHS 100",
-    payment: "Card", phone: "0207781234", addressDetails: "Bomso junction, yellow flats",
-    items: [{ qty: "1x", name: "Double Cheese Burger", modifier: "", price: "GHS 100" }],
-    subtotal: "GHS 85", delivery: "GHS 15", paid: true,
-  },
-  {
-    id: "#1038", timeAgo: "34 min ago", status: "Completed", customer: "Akosua Frimpong",
-    location: "Ayeduase", summary: "Fries Regular", total: "GHS 35",
-    payment: "MoMo", phone: "0559990001", addressDetails: "Ayeduase New Site",
-    items: [{ qty: "1x", name: "Fries Regular", modifier: "", price: "GHS 25" }],
-    subtotal: "GHS 20", delivery: "GHS 15", paid: true,
-  },
-];
+/** "just now" / "N min ago" / "N hr ago" / "N days ago". */
+function timeAgo(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} hr ago`;
+  return `${Math.floor(hrs / 24)} days ago`;
+}
+
+function mapOrder(o: any): Order {
+  const extrasText = (extras: { name: string; price: number }[] | null) =>
+    extras && extras.length
+      ? extras.map((e) => `+ ${e.name} (GHS ${e.price})`).join(", ")
+      : "";
+
+  return {
+    id: `#${o.id}`,
+    timeAgo: timeAgo(o.createdAt),
+    status: STATUS_TO_DISPLAY[o.status] ?? "New",
+    customer: o.user?.name ?? "Customer",
+    location: o.address?.label ?? o.landmark ?? "—",
+    summary: o.orderItems
+      .map((oi: any) => (oi.quantity > 1 ? `${oi.quantity}x ${oi.menuItem.name}` : oi.menuItem.name))
+      .join(", "),
+    total: `GHS ${o.total_amount}`,
+    payment: PAYMENT_TO_DISPLAY[o.paymentMethod] ?? o.paymentMethod,
+    phone: o.phone,
+    addressDetails: [o.address?.label, o.landmark ?? o.address?.details].filter(Boolean).join(" · ") || "—",
+    items: o.orderItems.map((oi: any) => ({
+      qty: `${oi.quantity}x`,
+      name: oi.menuItem.name,
+      modifier: extrasText(oi.extras),
+      price: `GHS ${oi.price_at_time_of_order * oi.quantity}`,
+    })),
+    subtotal: `GHS ${o.total_amount - o.deliveryFee}`,
+    delivery: `GHS ${o.deliveryFee}`,
+    paid: o.paid,
+  };
+}
 
 /** What the primary action says, given where the order currently is. */
 function nextAction(status: Status): { label: string; icon: IconName } | null {
@@ -98,14 +117,42 @@ function nextAction(status: Status): { label: string; icon: IconName } | null {
   }
 }
 
+// Live-updating without a websocket — good enough for order volume this size.
+const POLL_MS = 8000;
+
 export default function AdminOrdersScreen() {
   const { isPhone, isDesktop } = useResponsive();
   const { confirm } = useDialog();
-  const [orders, setOrders] = useState<Order[]>(SEED);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState("All");
-  const [selectedOrderId, setSelectedOrderId] = useState("#1042");
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [openOnPhone, setOpenOnPhone] = useState(false);
+  const busyIds = useRef(new Set<string>());
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = () => {
+      apiFetch("/admin/orders")
+        .then((data) => {
+          if (cancelled) return;
+          setOrders(data.map(mapOrder));
+        })
+        .catch(() => {
+          // Transient network hiccup — the next poll retries.
+        })
+        .finally(() => setLoading(false));
+    };
+
+    load();
+    const interval = setInterval(load, POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
 
   const counts = useMemo(() => {
     const map: Record<string, number> = { All: orders.length };
@@ -127,15 +174,31 @@ export default function AdminOrdersScreen() {
 
   const current = orders.find((o) => o.id === selectedOrderId) ?? filtered[0] ?? orders[0];
 
+  const pushStatus = async (id: string, backendStatus: string) => {
+    if (busyIds.current.has(id)) return;
+    busyIds.current.add(id);
+    try {
+      const numericId = id.replace("#", "");
+      await apiFetch(`/admin/orders/${numericId}/status`, {
+        method: "PUT",
+        body: JSON.stringify({ status: backendStatus }),
+      });
+      setOrders((prev) =>
+        prev.map((o) => (o.id === id ? { ...o, status: STATUS_TO_DISPLAY[backendStatus] } : o)),
+      );
+    } catch {
+      // Left as-is — the next poll reconciles with the server's real state.
+    } finally {
+      busyIds.current.delete(id);
+    }
+  };
+
   const advance = (id: string) => {
-    setOrders((prev) =>
-      prev.map((o) => {
-        if (o.id !== id) return o;
-        const i = FLOW.indexOf(o.status as (typeof FLOW)[number]);
-        if (i === -1 || i >= FLOW.length - 1) return o;
-        return { ...o, status: FLOW[i + 1] };
-      }),
-    );
+    const order = orders.find((o) => o.id === id);
+    if (!order) return;
+    const i = FLOW.indexOf(order.status as (typeof FLOW)[number]);
+    if (i === -1 || i >= FLOW.length - 1) return;
+    pushStatus(id, BACKEND_FLOW[i + 1]);
   };
 
   const decline = async (order: Order) => {
@@ -146,11 +209,7 @@ export default function AdminOrdersScreen() {
       cancelLabel: "Keep",
       destructive: true,
     });
-    if (ok) {
-      setOrders((prev) =>
-        prev.map((o) => (o.id === order.id ? { ...o, status: "Cancelled" } : o)),
-      );
-    }
+    if (ok) await pushStatus(order.id, "CANCELLED");
   };
 
   const call = (order: Order) => Linking.openURL(`tel:+233${order.phone.replace(/^0/, "")}`);
@@ -335,7 +394,9 @@ export default function AdminOrdersScreen() {
         <View style={[styles.split, !isDesktop && styles.splitStacked]}>
           {(!isPhone || !openOnPhone) && (
             <FadeIn delay={110} style={isDesktop ? styles.listCol : undefined}>
-              {filtered.length === 0 ? (
+              {loading ? (
+                <ActivityIndicator style={{ marginTop: 40 }} color={Admin.red} />
+              ) : filtered.length === 0 ? (
                 <Card style={styles.emptyCard}>
                   <Icon name="inbox" size={22} color={Admin.textFaint} />
                   <Text style={styles.emptyText}>No {selectedTab.toLowerCase()} orders.</Text>

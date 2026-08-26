@@ -93,8 +93,11 @@ export const verifyPayment = async (req: AuthRequest, res: Response): Promise<vo
         res.status(403).json({ message: 'Unauthorized' });
         return;
       }
-      if (paystackStatus === 'success' && order.status === 'PENDING') {
-        await prisma.order.update({ where: { id: orderId }, data: { status: 'PREPARING' } });
+      // Payment success only marks the order paid — it never moves the
+      // kitchen status. Accepting/advancing an order is an admin action,
+      // for every payment method including cash.
+      if (paystackStatus === 'success' && !order.paid) {
+        await prisma.order.update({ where: { id: orderId }, data: { paid: true } });
       }
     }
 
@@ -122,16 +125,17 @@ export const paystackWebhook = async (req: AuthRequest, res: Response): Promise<
 
     const event = req.body;
     
-    // When payment is successful, move order from PENDING to PREPARING
+    // When payment is successful, mark the order paid — kitchen status is
+    // an admin-only action, unaffected by payment (see verifyPayment).
     if (event.event === 'charge.success') {
       const orderId = event.data.metadata?.order_id;
-      
+
       if (orderId) {
         await prisma.order.update({
           where: { id: parseInt(orderId) },
-          data: { status: 'PREPARING' }
+          data: { paid: true }
         });
-        console.log(`✅ SUCCESS: Order #${orderId} marked as PREPARING via Paystack Webhook.`);
+        console.log(`✅ SUCCESS: Order #${orderId} marked as paid via Paystack Webhook.`);
       }
     }
 

@@ -2,6 +2,7 @@ import { apiFetch, saveToken } from "@/api";
 import { DismissKeyboard } from "@/components/dismiss-keyboard";
 import { LoadingOverlay } from "@/components/loading-screen";
 import { Brand } from "@/constants/brand";
+import { registerForPushNotifications } from "@/push";
 import { useAccount } from "@/store/app-store";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -106,6 +107,9 @@ export default function OtpScreen() {
       });
       await saveToken(data.token);
       setAccount({ name: data.name, phone: data.phone });
+      // Fire-and-forget — never let a permission dialog or missing EAS
+      // project block getting the customer into the app.
+      registerForPushNotifications();
       router.replace("/(tabs)/home");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Please try again.");

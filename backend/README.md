@@ -73,7 +73,9 @@ unused multi-tenant complexity:
   the login identifier and email/password are optional legacy fields. The
   **owner** signs in via email/password on this same model (`role: OWNER`) —
   there's exactly one real owner account per business, created directly in
-  the database, not through a signup screen.
+  the database, not through a signup screen. `pushToken` stores the
+  customer's Expo push token (set via `PUT /auth/push-token`), used to send
+  real order-status notifications.
 - **`Staff`** — separate from `User` entirely, since staff sign in with a
   name + 4-digit PIN, not a password. Only `pinHash` is ever stored; the
   plaintext PIN exists only in the API response the moment it's created or
@@ -85,14 +87,19 @@ unused multi-tenant complexity:
   `name`/`description`/`price`/`image_url` — no category/availability
   fields yet (see Roadmap).
 - **`Order`** — one customer order: payment method/network, delivery fee,
-  landmark, linked address, and status (`PENDING → PREPARING → OUT_FOR_DELIVERY → DELIVERED`,
+  landmark, linked address, and status (`NEW → PREPARING → READY → OUT_FOR_DELIVERY → COMPLETED`,
   or `CANCELLED`). Also carries `riderName`/`riderPhone`/`riderVehicle` (set
   by the admin when a rider is assigned) and `deliveryCode` — a 4-digit code
   generated at checkout that's the customer's own proof-of-receipt.
   **`deliveryCode` must never be exposed on any admin-facing query** — it's
   explicitly `omit`ted in `getAllOrders` and `updateOrderStatus`, and
   stripped in `getOrderStatus` whenever the requester is an admin. Keep that
-  invariant if you touch those queries.
+  invariant if you touch those queries. `status` (kitchen/delivery stage) and
+  `paid` (whether the order has actually been paid for) are fully
+  independent fields — `status` only ever changes via admin action
+  (`updateOrderStatus`), and `paid` only ever flips via a confirmed Paystack
+  charge (`verifyPayment`/`paystackWebhook`). Cash-on-delivery orders stay
+  `paid: false` for their entire lifecycle.
 - **`OrderItem`** — line items, with a `price_at_time_of_order` snapshot
   and an `extras` JSON snapshot of selected add-ons (so a later menu price
   change never rewrites history).
@@ -112,7 +119,8 @@ unused multi-tenant complexity:
 | `GET /api/payments/verify/:reference` | Authoritative payment status check (see above) |
 | `POST /api/payments/webhook` | Paystack webhook (production path) |
 | `GET /api/places/nearby-landmark` | Map-tap → landmark + city lookup |
-| `POST /api/admin/menu`, `GET /api/admin/orders`, `PUT /api/admin/orders/:id/status` | Staff-or-owner. `getAllOrders` and the status update both `omit` `deliveryCode` |
+| `POST /api/admin/menu`, `GET /api/admin/orders`, `PUT /api/admin/orders/:id/status` | Staff-or-owner. `getAllOrders` and the status update both `omit` `deliveryCode`. A status update sends the customer a real Expo push notification (see below) |
+| `PUT /api/auth/push-token` | Authenticated customer. Saves the device's Expo push token onto `User.pushToken` |
 | `GET /api/admin/customers` | Staff-or-owner. Every `CUSTOMER`-role user with their real order count, lifetime spend, and last order date computed live from `Order` — including ones with zero orders |
 | `POST /api/admin/auth/owner-login` | Owner email/password login |
 | `GET /api/admin/auth/active-staff` | Public — name+id only, for the staff sign-in picker |
@@ -121,13 +129,17 @@ unused multi-tenant complexity:
 
 ## Roadmap — what's still ahead
 
-Admin auth (owner login + staff PIN login) is now real — see Changelog. What's
-still mock or unbuilt:
+Admin auth (owner login + staff PIN login), the Customers page, and the
+Orders page are now real — see Changelog. What's still mock or unbuilt:
 
 - Menu management (category, availability, image upload) — `MenuItem` needs
   these fields added when this work starts
-- Admin views for orders, customers, payments, and reports, backed by real
-  aggregation queries instead of the current hardcoded arrays
+- Admin Payments and Reports pages, backed by real aggregation queries
+  instead of the current hardcoded arrays
+- **No EAS project is configured yet**, so `getExpoPushTokenAsync()` can
+  fail silently (caught and ignored — push registration is best-effort and
+  must never block sign-in). Push notifications won't actually reach a
+  device until an EAS project id is set in `app.json`
 - Per the current plan, the admin console ships as its **own web-only
   build** at a separate URL — never bundled into the customer app that goes
   to the app stores
@@ -180,3 +192,25 @@ integrations, new endpoints, breaking changes to existing ones.
   hardcoded rows). A new signup shows up immediately with 0 orders/GHS 0
   spent, both updating live as they actually order — nothing here is
   precomputed or cached.
+- **Decoupled `paid` from `status` on `Order`.** Previously a successful
+  Paystack charge auto-advanced `status` to `PREPARING`, which conflicted
+  with status being purely admin-controlled. Now `paid` is its own boolean,
+  flipped only by `verifyPayment`/`paystackWebhook`; `status` only ever
+  changes via `updateOrderStatus`. Expanded `OrderStatus` from
+  `PENDING|PREPARING|OUT_FOR_DELIVERY|DELIVERED|CANCELLED` to
+  `NEW|PREPARING|READY|OUT_FOR_DELIVERY|COMPLETED|CANCELLED` (added a
+  `READY` "packed, waiting for a rider" stage).
+- **Real push notifications for order status.** Added `User.pushToken` +
+  `PUT /auth/push-token`; `registerForPushNotifications()` runs on the
+  mobile app right after sign-in (native only — `expo-notifications` has no
+  web support, split into `push.native.ts`/`push.web.ts`). Every
+  `updateOrderStatus` call now sends the customer a real Expo push (plain
+  `fetch` to `exp.host/--/api/v2/push/send`, no SDK) with a
+  status-appropriate message; fire-and-forget, so a push failure never
+  blocks the status update itself.
+- Wired the admin Orders page to `GET /admin/orders` +
+  `PUT /admin/orders/:id/status` (previously a hardcoded `SEED` array).
+  Accept/decline/advance buttons drive real status transitions with
+  optimistic UI updates (reconciled by an 8s poll on failure). The existing
+  paid/cash-on-delivery badge now reflects real data with no UI changes
+  needed, since `payment`/`paid` were already real `Order` columns.

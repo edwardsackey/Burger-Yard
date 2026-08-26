@@ -325,3 +325,22 @@ export const updateProfile = async (req: any, res: Response): Promise<void> => {
     res.status(500).json({ message: 'Internal server error' });
   }
 };
+
+export const savePushToken = async (req: any, res: Response): Promise<void> => {
+  try {
+    const { pushToken } = req.body;
+    if (!pushToken) {
+      res.status(400).json({ message: 'pushToken is required.' });
+      return;
+    }
+
+    await prisma.user.update({
+      where: { id: req.user.id },
+      data: { pushToken },
+    });
+    res.json({ message: 'Push token saved' });
+  } catch (error) {
+    console.error('Save push token error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};

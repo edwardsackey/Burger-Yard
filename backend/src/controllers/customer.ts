@@ -63,7 +63,7 @@ export const placeOrder = async (req: AuthRequest, res: Response): Promise<void>
         momoNetwork: momoNetwork ?? undefined,
         deliveryFee: fee,
         total_amount,
-        status: 'PENDING',
+        status: 'NEW',
         deliveryCode,
         orderItems: { create: orderItemsData },
       },

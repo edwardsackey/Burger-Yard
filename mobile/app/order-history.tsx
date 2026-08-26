@@ -26,7 +26,7 @@ type OrderRow = {
 
 // Kitchen/delivery statuses collapse into just two buckets for this list —
 // customers care whether it's still coming or already done, not the stage.
-const ACTIVE_STATUSES = new Set(["PENDING", "PREPARING", "OUT_FOR_DELIVERY"]);
+const ACTIVE_STATUSES = new Set(["NEW", "PREPARING", "READY", "OUT_FOR_DELIVERY"]);
 
 function formatOrderDate(iso: string): string {
   const date = new Date(iso);

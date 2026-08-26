@@ -22,6 +22,10 @@ model User {
   resetTokenExpiry DateTime?
   address       String?
   role          Role     @default(CUSTOMER)
+  // Expo push token for this device. Set the moment the app has a signed-in
+  // user and notification permission — used to notify them when the admin
+  // moves their order along.
+  pushToken     String?
   orders        Order[]
   addresses     Address[]
   createdAt     DateTime @default(now())
@@ -71,10 +75,11 @@ model MenuItem {
 }
 
 enum OrderStatus {
-  PENDING
+  NEW
   PREPARING
+  READY
   OUT_FOR_DELIVERY
-  DELIVERED
+  COMPLETED
   CANCELLED
 }
 
@@ -102,7 +107,11 @@ model Order {
   momoNetwork   MomoNetwork?
   deliveryFee   Float
   total_amount  Float
-  status        OrderStatus   @default(PENDING)
+  status        OrderStatus   @default(NEW)
+  // Independent of kitchen status — a MoMo/Card charge marks this true the
+  // moment Paystack confirms it, regardless of whether the kitchen has
+  // accepted the order yet. Cash orders stay false until paid on delivery.
+  paid          Boolean       @default(false)
   riderName     String?
   riderPhone    String?
   riderVehicle  String?
