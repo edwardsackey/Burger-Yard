@@ -1,6 +1,8 @@
-import { useRouter } from "expo-router";
-import React from "react";
+import { apiFetch } from "@/api";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -8,8 +10,25 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+const PAYMENT_LABEL: Record<string, string> = {
+  MOMO: "MoMo",
+  CARD: "Card",
+  CASH: "Cash on Delivery",
+};
+
 export default function OrderPlacedScreen() {
   const router = useRouter();
+  const { orderId } = useLocalSearchParams<{ orderId: string }>();
+  const [order, setOrder] = useState<any | null>(null);
+
+  useEffect(() => {
+    if (!orderId) return;
+    apiFetch(`/customer/orders/${orderId}`)
+      .then(setOrder)
+      .catch(() => {
+        // Order was placed either way — this screen is best-effort detail.
+      });
+  }, [orderId]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -20,33 +39,45 @@ export default function OrderPlacedScreen() {
 
         <Text style={styles.title}>Order placed!</Text>
         <Text style={styles.subtitle}>
-          Your order #1042 is confirmed and the kitchen is on it.
+          {order
+            ? `Your order #${order.id} is confirmed and the kitchen is on it.`
+            : "Your order is confirmed and the kitchen is on it."}
         </Text>
 
-        <View style={styles.receiptCard}>
-          <View style={styles.row}>
-            <Text style={styles.label}>Estimated arrival</Text>
-            <Text style={styles.val}>~25 min</Text>
+        {!order ? (
+          <ActivityIndicator color="#D62828" />
+        ) : (
+          <View style={styles.receiptCard}>
+            <View style={styles.row}>
+              <Text style={styles.label}>Estimated arrival</Text>
+              <Text style={styles.val}>~25 min</Text>
+            </View>
+            <View style={styles.row}>
+              <Text style={styles.label}>Delivery to</Text>
+              <Text style={styles.val}>
+                {order.address?.label ?? order.landmark ?? "—"}
+              </Text>
+            </View>
+            <View style={styles.row}>
+              <Text style={styles.label}>Payment</Text>
+              <Text style={styles.val}>
+                {PAYMENT_LABEL[order.paymentMethod] ?? order.paymentMethod}
+              </Text>
+            </View>
+            <View style={[styles.row, styles.totalRow]}>
+              <Text style={styles.totalLabel}>Total paid</Text>
+              <Text style={styles.totalVal}>GHS {order.total_amount}</Text>
+            </View>
           </View>
-          <View style={styles.row}>
-            <Text style={styles.label}>Delivery to</Text>
-            <Text style={styles.val}>Ayeduase New Site</Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.label}>Payment</Text>
-            <Text style={styles.val}>MoMo</Text>
-          </View>
-          <View style={[styles.row, styles.totalRow]}>
-            <Text style={styles.totalLabel}>Total paid</Text>
-            <Text style={styles.totalVal}>GHS 195</Text>
-          </View>
-        </View>
+        )}
       </View>
 
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.primaryBtn}
-          onPress={() => router.push("/order-tracking")}
+          onPress={() =>
+            router.push({ pathname: "/order-tracking", params: { orderId } })
+          }
         >
           <Text style={styles.primaryText}>Track order</Text>
         </TouchableOpacity>

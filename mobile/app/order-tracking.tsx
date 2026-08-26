@@ -1,6 +1,9 @@
-import { useRouter } from "expo-router";
-import React from "react";
+import { apiFetch } from "@/api";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
+  Linking,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -8,8 +11,62 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+const STAGES = ["Order accepted", "Preparing your food", "On the way", "Delivered"] as const;
+
+// Kitchen/delivery statuses map onto the four customer-facing stages above.
+const STAGE_INDEX: Record<string, number> = {
+  PENDING: 0,
+  PREPARING: 1,
+  OUT_FOR_DELIVERY: 2,
+  DELIVERED: 3,
+};
+
+const STATUS_TITLE: Record<string, string> = {
+  PENDING: "Order accepted",
+  PREPARING: "Preparing your food",
+  OUT_FOR_DELIVERY: "On the way",
+  DELIVERED: "Delivered",
+  CANCELLED: "Order cancelled",
+};
+
+// Polling rather than a live push channel — good enough for a status that
+// only changes a handful of times over an order's life, without needing a
+// websocket/notification server.
+const POLL_MS = 8000;
+
 export default function OrderTrackingScreen() {
   const router = useRouter();
+  const { orderId } = useLocalSearchParams<{ orderId: string }>();
+  const [order, setOrder] = useState<any | null>(null);
+
+  useEffect(() => {
+    if (!orderId) return;
+    let cancelled = false;
+
+    const load = () => {
+      apiFetch(`/customer/orders/${orderId}`)
+        .then((data) => {
+          if (!cancelled) setOrder(data);
+        })
+        .catch(() => {
+          // Transient network hiccup — the next poll will retry.
+        });
+    };
+
+    load();
+    const interval = setInterval(load, POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [orderId]);
+
+  const handleCallRider = () => {
+    if (order?.riderPhone) Linking.openURL(`tel:${order.riderPhone}`);
+  };
+
+  const stageIndex = order ? STAGE_INDEX[order.status] : undefined;
+  const cancelled = order?.status === "CANCELLED";
 
   return (
     <SafeAreaView style={styles.container}>
@@ -26,68 +83,82 @@ export default function OrderTrackingScreen() {
 
       <View style={styles.panel}>
         <View style={styles.panelHandle} />
-        <View style={styles.statusHeader}>
-          <View>
-            <Text style={styles.statusSub}>Arriving in</Text>
-            <Text style={styles.statusTitle}>On the way</Text>
-          </View>
-          <View style={{ alignItems: "flex-end" }}>
-            <Text style={styles.etaText}>~15 min</Text>
-            <Text style={styles.orderId}>Order #1042</Text>
-          </View>
-        </View>
 
-        <View style={styles.timeline}>
-          <View style={styles.timelineRow}>
-            <View style={[styles.dot, styles.dotDone]} />
-            <Text style={styles.timelineText}>
-              Order accepted <Text style={styles.time}>12:04 PM</Text>
-            </Text>
-          </View>
-          <View style={styles.timelineRow}>
-            <View style={[styles.dot, styles.dotDone]} />
-            <Text style={styles.timelineText}>
-              Preparing your food <Text style={styles.time}>12:09 PM</Text>
-            </Text>
-          </View>
-          <View style={styles.timelineRow}>
-            <View style={[styles.dot, styles.dotDone]} />
-            <Text style={styles.timelineText}>
-              On the way <Text style={styles.time}>Rider picked up</Text>
-            </Text>
-          </View>
-          <View style={styles.timelineRow}>
-            <View style={styles.dot} />
-            <Text style={styles.timelineTextDim}>
-              Delivered <Text style={styles.time}>Awaiting OTP</Text>
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.riderCard}>
-          <View style={styles.riderAvatar}>
-            <Text>🛵</Text>
-          </View>
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={styles.riderName}>Kwame · Your rider</Text>
-            <Text style={styles.riderBike}>Honda · GR-2204 · ⭐ 4.9</Text>
-          </View>
-          <TouchableOpacity style={styles.callBtn}>
-            <Text style={styles.callText}>Call</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.codeCard}>
-          <Text style={styles.codeTitle}>Delivery code</Text>
-          <Text style={styles.codeSub}>Share with rider on arrival</Text>
-          <View style={styles.codeBoxes}>
-            {["4", "2", "8", "1"].map((n, i) => (
-              <View key={i} style={styles.codeBox}>
-                <Text style={styles.codeDigit}>{n}</Text>
+        {!order ? (
+          <ActivityIndicator style={{ marginTop: 20 }} color="#D62828" />
+        ) : (
+          <>
+            <View style={styles.statusHeader}>
+              <View>
+                <Text style={styles.statusSub}>
+                  {cancelled ? "" : "Status"}
+                </Text>
+                <Text style={styles.statusTitle}>
+                  {STATUS_TITLE[order.status] ?? order.status}
+                </Text>
               </View>
-            ))}
-          </View>
-        </View>
+              <View style={{ alignItems: "flex-end" }}>
+                <Text style={styles.orderId}>Order #{order.id}</Text>
+              </View>
+            </View>
+
+            {!cancelled && (
+              <View style={styles.timeline}>
+                {STAGES.map((label, i) => (
+                  <View key={label} style={styles.timelineRow}>
+                    <View
+                      style={[styles.dot, i <= (stageIndex ?? -1) && styles.dotDone]}
+                    />
+                    <Text
+                      style={
+                        i <= (stageIndex ?? -1)
+                          ? styles.timelineText
+                          : styles.timelineTextDim
+                      }
+                    >
+                      {label}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {order.riderName && (
+              <View style={styles.riderCard}>
+                <View style={styles.riderAvatar}>
+                  <Text>🛵</Text>
+                </View>
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={styles.riderName}>{order.riderName} · Your rider</Text>
+                  {order.riderVehicle && (
+                    <Text style={styles.riderBike}>{order.riderVehicle}</Text>
+                  )}
+                </View>
+                <TouchableOpacity
+                  style={styles.callBtn}
+                  onPress={handleCallRider}
+                  disabled={!order.riderPhone}
+                >
+                  <Text style={styles.callText}>Call</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {!cancelled && order.deliveryCode && (
+              <View style={styles.codeCard}>
+                <Text style={styles.codeTitle}>Delivery code</Text>
+                <Text style={styles.codeSub}>Share with rider on arrival</Text>
+                <View style={styles.codeBoxes}>
+                  {order.deliveryCode.split("").map((n: string, i: number) => (
+                    <View key={i} style={styles.codeBox}>
+                      <Text style={styles.codeDigit}>{n}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+          </>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -156,7 +227,6 @@ const styles = StyleSheet.create({
   },
   statusSub: { fontSize: 12, color: "#666" },
   statusTitle: { fontSize: 18, fontWeight: "bold", color: "#111" },
-  etaText: { fontSize: 18, fontWeight: "bold", color: "#D62828" },
   orderId: { fontSize: 11, color: "#666" },
   timeline: { marginBottom: 16, gap: 10 },
   timelineRow: { flexDirection: "row", alignItems: "center", gap: 10 },
@@ -164,7 +234,6 @@ const styles = StyleSheet.create({
   dotDone: { backgroundColor: "#D62828" },
   timelineText: { fontSize: 13, fontWeight: "600", color: "#111" },
   timelineTextDim: { fontSize: 13, color: "#9CA3AF" },
-  time: { fontSize: 11, color: "#666", fontWeight: "normal" },
   riderCard: {
     flexDirection: "row",
     alignItems: "center",

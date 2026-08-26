@@ -91,6 +91,13 @@ model Order {
   deliveryFee   Float
   total_amount  Float
   status        OrderStatus   @default(PENDING)
+  riderName     String?
+  riderPhone    String?
+  riderVehicle  String?
+  // Generated at order placement, shown only to the customer. Never expose
+  // this on any admin-facing query — it's how the customer proves receipt
+  // to the rider, so the admin console must not be able to see or leak it.
+  deliveryCode  String?
   orderItems    OrderItem[]
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt

@@ -150,7 +150,12 @@ export default function OrderHistoryScreen() {
                 {order.status === "Active" ? (
                   <TouchableOpacity
                     style={styles.trackBtn}
-                    onPress={() => router.push("/order-tracking")}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/order-tracking",
+                        params: { orderId: String(order.id) },
+                      })
+                    }
                   >
                     <Text style={styles.trackBtnText}>Track order</Text>
                   </TouchableOpacity>

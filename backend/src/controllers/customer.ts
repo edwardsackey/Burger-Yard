@@ -49,6 +49,9 @@ export const placeOrder = async (req: AuthRequest, res: Response): Promise<void>
 
     const fee = typeof deliveryFee === 'number' ? deliveryFee : 25;
     const total_amount = subtotal + fee;
+    // Handed to the customer only, never the admin — this is how they prove
+    // to the rider that the order in hand is really theirs at drop-off.
+    const deliveryCode = Math.floor(1000 + Math.random() * 9000).toString();
 
     const order = await prisma.order.create({
       data: {
@@ -61,6 +64,7 @@ export const placeOrder = async (req: AuthRequest, res: Response): Promise<void>
         deliveryFee: fee,
         total_amount,
         status: 'PENDING',
+        deliveryCode,
         orderItems: { create: orderItemsData },
       },
       include: { orderItems: true },
@@ -89,6 +93,14 @@ export const getOrderStatus = async (req: AuthRequest, res: Response): Promise<v
     // Ensure users can only view their own orders unless they are admin
     if (order.userId !== req.user!.id && req.user!.role !== 'ADMIN') {
       res.status(403).json({ message: 'Unauthorized' });
+      return;
+    }
+
+    // The delivery code is the customer's own proof-of-receipt — an admin
+    // viewing the same order (e.g. for support) must never see it.
+    if (req.user!.role === 'ADMIN') {
+      const { deliveryCode, ...rest } = order;
+      res.json(rest);
       return;
     }
 

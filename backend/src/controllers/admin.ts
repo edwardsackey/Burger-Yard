@@ -19,6 +19,9 @@ export const getAllOrders = async (req: AuthRequest, res: Response): Promise<voi
   try {
     const orders = await prisma.order.findMany({
       orderBy: { createdAt: 'desc' },
+      // The delivery code is the customer's own proof-of-receipt — never
+      // expose it on an admin-facing query.
+      omit: { deliveryCode: true },
       include: {
         user: { select: { name: true, phone: true } },
         address: true,
@@ -34,12 +37,18 @@ export const getAllOrders = async (req: AuthRequest, res: Response): Promise<voi
 export const updateOrderStatus = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const orderId = parseInt(req.params.id);
-    const { status } = req.body;
+    const { status, riderName, riderPhone, riderVehicle } = req.body;
     // status should be one of: PENDING, PREPARING, OUT_FOR_DELIVERY, DELIVERED, CANCELLED
 
     const order = await prisma.order.update({
       where: { id: orderId },
-      data: { status }
+      data: {
+        status,
+        riderName: riderName ?? undefined,
+        riderPhone: riderPhone ?? undefined,
+        riderVehicle: riderVehicle ?? undefined,
+      },
+      omit: { deliveryCode: true },
     });
     res.json(order);
   } catch (error) {

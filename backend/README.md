@@ -79,7 +79,13 @@ unused multi-tenant complexity:
   fields yet (see Roadmap).
 - **`Order`** — one customer order: payment method/network, delivery fee,
   landmark, linked address, and status (`PENDING → PREPARING → OUT_FOR_DELIVERY → DELIVERED`,
-  or `CANCELLED`).
+  or `CANCELLED`). Also carries `riderName`/`riderPhone`/`riderVehicle` (set
+  by the admin when a rider is assigned) and `deliveryCode` — a 4-digit code
+  generated at checkout that's the customer's own proof-of-receipt.
+  **`deliveryCode` must never be exposed on any admin-facing query** — it's
+  explicitly `omit`ted in `getAllOrders` and `updateOrderStatus`, and
+  stripped in `getOrderStatus` whenever the requester is an admin. Keep that
+  invariant if you touch those queries.
 - **`OrderItem`** — line items, with a `price_at_time_of_order` snapshot
   and an `extras` JSON snapshot of selected add-ons (so a later menu price
   change never rewrites history).
@@ -117,6 +123,14 @@ out is the next major phase:
 - Per the current plan, the admin console ships as its **own web-only
   build** at a separate URL — never bundled into the customer app that goes
   to the app stores
+- **No rider-facing interface exists yet.** Rider name/phone/vehicle are set
+  manually via `updateOrderStatus` for now — there's no way for a rider to
+  interact with the system at all. Two features are blocked on this:
+  real-time rider location on the tracking map, and completing a delivery
+  by having the rider enter the customer's delivery code (currently the
+  code is generated and shown to the customer, but nothing ever verifies
+  it — there's no endpoint for it since there's no one to call it). Both
+  need at minimum a lightweight rider-facing page before they can be built.
 
 ## Changelog
 
@@ -138,3 +152,12 @@ integrations, new endpoints, breaking changes to existing ones.
   checkout map picker.
 - Seeded the real menu catalog (9 items) matching the frontend's product
   list.
+- Added `riderName`/`riderPhone`/`riderVehicle` and a customer-only
+  `deliveryCode` to `Order`; `updateOrderStatus` can now assign a rider
+  alongside a status change. `deliveryCode` is explicitly excluded from
+  every admin-facing order query.
+- Wired the order-tracking page to real, polled order data (previously
+  100% hardcoded, and disconnected from the actual order — checkout,
+  order-placed, and order-tracking now share the real order id end to end).
+  Live rider location and delivery-code verification are intentionally not
+  built yet — see Roadmap.

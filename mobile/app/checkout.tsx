@@ -164,7 +164,7 @@ export default function CheckoutScreen() {
         `${summary || "Your order"}. Estimated 20 min.`,
       );
       clear();
-      router.push("/order-placed");
+      router.push({ pathname: "/order-placed", params: { orderId: String(order.id) } });
     } catch (err) {
       setPrompt({ message: err instanceof Error ? err.message : "Please try again." });
     } finally {
