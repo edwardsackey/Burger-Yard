@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { addMenuItem, getAllOrders, updateOrderStatus } from '../controllers/admin';
+import { addMenuItem, getAllOrders, getCustomers, updateOrderStatus } from '../controllers/admin';
 import {
   ownerLogin,
   getActiveStaff,
@@ -22,6 +22,7 @@ router.post('/auth/staff-login', staffLogin);
 // Staff or owner — the day-to-day admin console screens.
 router.post('/menu', authenticate, requireStaffOrOwner, addMenuItem);
 router.get('/orders', authenticate, requireStaffOrOwner, getAllOrders);
+router.get('/customers', authenticate, requireStaffOrOwner, getCustomers);
 router.put('/orders/:id/status', authenticate, requireStaffOrOwner, updateOrderStatus);
 
 // Owner-only — staff management.

@@ -113,6 +113,7 @@ unused multi-tenant complexity:
 | `POST /api/payments/webhook` | Paystack webhook (production path) |
 | `GET /api/places/nearby-landmark` | Map-tap → landmark + city lookup |
 | `POST /api/admin/menu`, `GET /api/admin/orders`, `PUT /api/admin/orders/:id/status` | Staff-or-owner. `getAllOrders` and the status update both `omit` `deliveryCode` |
+| `GET /api/admin/customers` | Staff-or-owner. Every `CUSTOMER`-role user with their real order count, lifetime spend, and last order date computed live from `Order` — including ones with zero orders |
 | `POST /api/admin/auth/owner-login` | Owner email/password login |
 | `GET /api/admin/auth/active-staff` | Public — name+id only, for the staff sign-in picker |
 | `POST /api/admin/auth/staff-login` | Staff PIN login (`staffId` + `pin`) |
@@ -175,3 +176,7 @@ integrations, new endpoints, breaking changes to existing ones.
   login, and owner-only staff CRUD. Created the one real owner account
   directly in the database (email/password, not a signup flow — see the
   `User` schema note above for why).
+- Wired the admin Customers page to `GET /admin/customers` (previously 6
+  hardcoded rows). A new signup shows up immediately with 0 orders/GHS 0
+  spent, both updating live as they actually order — nothing here is
+  precomputed or cached.

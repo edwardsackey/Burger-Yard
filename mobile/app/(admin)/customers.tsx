@@ -1,3 +1,4 @@
+import { apiFetch } from "@/api";
 import { Cell, DataTable, type Column } from "@/components/admin/data-table";
 import {
   FilterTabs,
@@ -10,11 +11,11 @@ import { ExportButton } from "@/components/admin/export-menu";
 import { Button, FadeIn } from "@/components/admin/ui";
 import { Admin } from "@/constants/admin-theme";
 import { useResponsive } from "@/hooks/use-responsive";
-import React, { useMemo, useState } from "react";
-import { Linking, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, View } from "react-native";
 
 type Customer = {
-  id: string;
+  id: number;
   name: string;
   phone: string;
   location: string;
@@ -23,34 +24,61 @@ type Customer = {
   lastOrder: string;
 };
 
-const CUSTOMERS: Customer[] = [
-  { id: "c1", name: "Ama Mensah", phone: "0543927440", location: "Ayeduase New Site", orders: 24, spent: 2140, lastOrder: "Today" },
-  { id: "c2", name: "Kwesi Boateng", phone: "0244244123", location: "Kotei", orders: 11, spent: 860, lastOrder: "Today" },
-  { id: "c3", name: "Adwoa Owusu", phone: "0245012345", location: "Ayeduase Gate", orders: 18, spent: 1580, lastOrder: "Yesterday" },
-  { id: "c4", name: "Yaw Darko", phone: "0207781234", location: "Bomso", orders: 6, spent: 470, lastOrder: "2 days ago" },
-  { id: "c5", name: "Akosua Frimpong", phone: "0559990001", location: "Ayeduase", orders: 31, spent: 2890, lastOrder: "Today" },
-  { id: "c6", name: "Kofi Antwi", phone: "0261112223", location: "Kentinkrono", orders: 3, spent: 240, lastOrder: "1 week ago" },
-];
-
 const FILTERS = ["All", "Regulars", "New"];
+
+/** "Today" / "Yesterday" / "N days ago" / a plain date further back. */
+function formatLastOrder(iso: string | null): string {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  const now = new Date();
+  const dayMs = 24 * 60 * 60 * 1000;
+  const diffDays = Math.floor((now.setHours(0, 0, 0, 0) - new Date(date).setHours(0, 0, 0, 0)) / dayMs);
+
+  if (diffDays <= 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays} days ago`;
+  return date.toLocaleDateString([], { day: "numeric", month: "short" });
+}
 
 export default function AdminCustomersScreen() {
   const { isPhone } = useResponsive();
   const [filter, setFilter] = useState("All");
   const [query, setQuery] = useState("");
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiFetch("/admin/customers")
+      .then((data) => {
+        const rows: Customer[] = data.map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          phone: c.phone,
+          location: c.location ?? "—",
+          orders: c.orders,
+          spent: c.spent,
+          lastOrder: formatLastOrder(c.lastOrderAt),
+        }));
+        setCustomers(rows);
+      })
+      .catch(() => {
+        // Not signed in, or request failed — the empty state covers this.
+      })
+      .finally(() => setLoading(false));
+  }, []);
 
   const counts = useMemo(
     () => ({
-      All: CUSTOMERS.length,
-      Regulars: CUSTOMERS.filter((c) => c.orders >= 10).length,
-      New: CUSTOMERS.filter((c) => c.orders < 10).length,
+      All: customers.length,
+      Regulars: customers.filter((c) => c.orders >= 10).length,
+      New: customers.filter((c) => c.orders < 10).length,
     }),
-    [],
+    [customers],
   );
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return CUSTOMERS.filter((c) => {
+    return customers.filter((c) => {
       const inFilter =
         filter === "All" ||
         (filter === "Regulars" ? c.orders >= 10 : c.orders < 10);
@@ -61,11 +89,11 @@ export default function AdminCustomersScreen() {
         c.phone.includes(q);
       return inFilter && matches;
     });
-  }, [filter, query]);
+  }, [filter, query, customers]);
 
-  const totalSpend = CUSTOMERS.reduce((s, c) => s + c.spent, 0);
-  const avgValue = Math.round(totalSpend / CUSTOMERS.length);
-  const repeatRate = Math.round((counts.Regulars / CUSTOMERS.length) * 100);
+  const totalSpend = customers.reduce((s, c) => s + c.spent, 0);
+  const avgValue = customers.length ? Math.round(totalSpend / customers.length) : 0;
+  const repeatRate = customers.length ? Math.round((counts.Regulars / customers.length) * 100) : 0;
 
   const call = (c: Customer) =>
     Linking.openURL(`tel:+233${c.phone.replace(/^0/, "")}`);
@@ -120,7 +148,7 @@ export default function AdminCustomersScreen() {
       >
         <PageHeader
           title="Customers"
-          subtitle={`${CUSTOMERS.length} registered · ${repeatRate}% repeat rate`}
+          subtitle={`${customers.length} registered · ${repeatRate}% repeat rate`}
         >
           <SearchBox
             value={query}
@@ -132,24 +160,30 @@ export default function AdminCustomersScreen() {
 
         <StatRow
           stats={[
-            { label: "Total customers", value: String(CUSTOMERS.length), delta: "+15%", hint: "vs last month", icon: "users" },
+            { label: "Total customers", value: String(customers.length), hint: "All time", icon: "users" },
             { label: "Repeat rate", value: `${repeatRate}%`, hint: "10+ orders", icon: "repeat" },
             { label: "Average value", value: `GHS ${avgValue}`, hint: "Lifetime per customer", icon: "trending-up" },
           ]}
         />
 
-        <FadeIn delay={90}>
-          <FilterTabs options={FILTERS} value={filter} onChange={setFilter} counts={counts} />
-        </FadeIn>
+        {loading ? (
+          <ActivityIndicator style={{ marginTop: 40 }} color={Admin.red} />
+        ) : (
+          <>
+            <FadeIn delay={90}>
+              <FilterTabs options={FILTERS} value={filter} onChange={setFilter} counts={counts} />
+            </FadeIn>
 
-        <FadeIn delay={130}>
-          <DataTable
-            columns={columns}
-            rows={rows}
-            keyExtractor={(c) => c.id}
-            emptyText="No customers match that search."
-          />
-        </FadeIn>
+            <FadeIn delay={130}>
+              <DataTable
+                columns={columns}
+                rows={rows}
+                keyExtractor={(c) => String(c.id)}
+                emptyText="No customers match that search."
+              />
+            </FadeIn>
+          </>
+        )}
       </ScrollView>
     </View>
   );
