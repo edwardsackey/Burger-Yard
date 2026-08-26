@@ -5,7 +5,10 @@ import { SymbolWeight, SymbolViewProps } from 'expo-symbols';
 import { ComponentProps } from 'react';
 import { OpaqueColorValue, type StyleProp, type TextStyle } from 'react-native';
 
-type IconMapping = Record<SymbolViewProps['name'], ComponentProps<typeof MaterialIcons>['name']>;
+// `name` also accepts a per-platform object ({ ios, android, web }) in newer
+// expo-symbols, which cannot be a Record key - map only the plain string form.
+type SymbolName = Extract<SymbolViewProps['name'], string>;
+type IconMapping = Record<SymbolName, ComponentProps<typeof MaterialIcons>['name']>;
 type IconSymbolName = keyof typeof MAPPING;
 
 /**

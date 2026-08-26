@@ -1,12 +1,11 @@
 import { Router } from 'express';
-import { getRestaurants, getMenu, placeOrder, getOrderStatus, getMyOrders } from '../controllers/customer';
+import { getMenu, placeOrder, getOrderStatus, getMyOrders } from '../controllers/customer';
 import { authenticate } from '../middleware/auth';
 
 const router = Router();
 
-// Public routes (anyone can view restaurants and menus)
-router.get('/restaurants', getRestaurants);
-router.get('/restaurants/:id/menu', getMenu);
+// Public route (anyone can view the menu)
+router.get('/menu', getMenu);
 
 // Protected routes (must be logged in)
 router.use(authenticate);

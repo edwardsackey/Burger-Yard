@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createRestaurant, addMenuItem, getAllOrders, updateOrderStatus } from '../controllers/admin';
+import { addMenuItem, getAllOrders, updateOrderStatus } from '../controllers/admin';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { Response, NextFunction } from 'express';
 
@@ -16,8 +16,7 @@ const requireAdmin = (req: AuthRequest, res: Response, next: NextFunction): void
 
 router.use(authenticate, requireAdmin);
 
-router.post('/restaurants', createRestaurant);
-router.post('/restaurants/:id/menu', addMenuItem);
+router.post('/menu', addMenuItem);
 router.get('/orders', getAllOrders);
 router.put('/orders/:id/status', updateOrderStatus);
 

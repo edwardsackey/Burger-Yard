@@ -5,7 +5,7 @@ import crypto from 'crypto';
 
 export const initializePayment = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { orderId } = req.body;
+    const { orderId, callbackUrl } = req.body;
     
     const order = await prisma.order.findUnique({
       where: { id: orderId },
@@ -33,6 +33,7 @@ export const initializePayment = async (req: AuthRequest, res: Response): Promis
       body: JSON.stringify({
         email: order.user.email || 'customer@burgeryard.com',
         amount: Math.round(order.total_amount * 100), // Paystack requires amount in kobo/cents
+        callback_url: callbackUrl,
         metadata: {
           order_id: order.id
         }
@@ -54,6 +55,52 @@ export const initializePayment = async (req: AuthRequest, res: Response): Promis
     });
   } catch (error) {
     console.error('Payment initialization error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+/**
+ * Called by the app right after the user returns from the Paystack page.
+ * The webhook is the real source of truth for production, but it needs a
+ * publicly reachable URL — this lets the app get an immediate, real answer
+ * (rather than assuming success) even when testing locally without one.
+ */
+export const verifyPayment = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { reference } = req.params;
+    const secretKey = process.env.PAYSTACK_SECRET_KEY;
+    if (!secretKey) {
+      res.status(500).json({ message: 'Server configuration error: Paystack key missing in .env' });
+      return;
+    }
+
+    const response = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
+      headers: { Authorization: `Bearer ${secretKey}` },
+    });
+    const data = await response.json();
+
+    if (!response.ok || !data.status) {
+      res.status(400).json({ message: 'Could not verify transaction', error: data.message });
+      return;
+    }
+
+    const paystackStatus: string = data.data.status; // 'success' | 'failed' | 'abandoned'
+    const orderId = data.data.metadata?.order_id ? parseInt(data.data.metadata.order_id) : null;
+
+    if (orderId) {
+      const order = await prisma.order.findUnique({ where: { id: orderId } });
+      if (!order || order.userId !== req.user!.id) {
+        res.status(403).json({ message: 'Unauthorized' });
+        return;
+      }
+      if (paystackStatus === 'success' && order.status === 'PENDING') {
+        await prisma.order.update({ where: { id: orderId }, data: { status: 'PREPARING' } });
+      }
+    }
+
+    res.json({ status: paystackStatus, orderId });
+  } catch (error) {
+    console.error('Payment verify error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };

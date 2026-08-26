@@ -1,36 +1,108 @@
+import { Brand, FillParent } from "@/constants/brand";
+import { BRAND_IMAGES } from "@/constants/catalog";
 import { useRouter } from "expo-router";
-import React from "react";
+import { StatusBar } from "expo-status-bar";
+import React, { useEffect, useRef } from "react";
 import {
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Animated,
+  Easing,
+  Image,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  useWindowDimensions,
 } from "react-native";
 
+// react-native-web has no native animated module; asking for it only warns.
+const USE_NATIVE_DRIVER = Platform.OS !== "web";
+
+/**
+ * Frame 5 (node 12:37) - the screen where you choose to sign up or sign in.
+ *
+ * The dim is opacity on the image itself over an ink background, not a scrim
+ * on top, which is what the design note meant by reducing the opacity of the
+ * frame fill without touching anything else in the frame. Solving
+ * `rendered = 0.4 * source + 0.6 * background` across the render puts the
+ * backdrop at #121212.
+ */
 export default function WelcomeScreen() {
   const router = useRouter();
+  const { height } = useWindowDimensions();
+  const drop = useRef(new Animated.Value(0)).current;
+
+  // The badge falls in from above the screen and settles after three contacts:
+  // the landing itself, then two shrinking rebounds. Falls accelerate and
+  // rebounds decelerate, which is what sells it as weight rather than a slide.
+  useEffect(() => {
+    const restTop = height / 2 - (LOGO_SIZE + LOGO_GAP);
+    const startY = -(restTop + LOGO_SIZE + 24);
+
+    drop.setValue(startY);
+
+    const fall = (duration: number) =>
+      Animated.timing(drop, {
+        toValue: 0,
+        duration,
+        easing: Easing.in(Easing.quad),
+        useNativeDriver: USE_NATIVE_DRIVER,
+      });
+
+    const rebound = (toValue: number, duration: number) =>
+      Animated.timing(drop, {
+        toValue,
+        duration,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: USE_NATIVE_DRIVER,
+      });
+
+    const sequence = Animated.sequence([
+      fall(620), // contact 1
+      rebound(-70, 290),
+      fall(290), // contact 2
+      rebound(-26, 190),
+      fall(190), // contact 3, then static
+    ]);
+
+    sequence.start();
+    return () => sequence.stop();
+  }, [drop, height]);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        {/* Logo / Brand Icon */}
-        <View style={styles.logoContainer}>
-          <Text style={styles.logoEmoji}>🍔</Text>
-        </View>
+    <View style={styles.root}>
+      <StatusBar style="light" />
 
-        <Text style={styles.brandTitle}>THE BURGER YARD</Text>
-        <Text style={styles.tagline}>DON'T BE SHY, TAKE A BITE</Text>
+      <Image
+        source={BRAND_IMAGES.hero}
+        style={styles.fill}
+        resizeMode="cover"
+      />
 
+      {/* Sits above the copy block, bottom edge LOGO_GAP clear of the midpoint */}
+      <Animated.View
+        style={[styles.logoWrap, { transform: [{ translateY: drop }] }]}
+      >
+        <Image
+          source={BRAND_IMAGES.logo}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+      </Animated.View>
+
+      {/* Anchored to the vertical midpoint, matching top=422 on the 844 frame */}
+      <View style={styles.copy}>
+        <Text style={styles.tagline}>DON&apos;T BE SHY, TAKE A BITE</Text>
         <Text style={styles.description}>
-          Order your favourite burgers, pay with MoMo, and track your delivery
-          in real time.
+          Order your favourite burgers pay with MoMo, and track your delivery in
+          real time.
         </Text>
       </View>
 
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.primaryButton}
+          activeOpacity={0.85}
           onPress={() => router.push("/(auth)/signup")}
         >
           <Text style={styles.primaryButtonText}>Create account</Text>
@@ -38,83 +110,108 @@ export default function WelcomeScreen() {
 
         <TouchableOpacity
           style={styles.secondaryButton}
+          activeOpacity={0.85}
           onPress={() => router.push("/(auth)/signin")}
         >
           <Text style={styles.secondaryButtonText}>Sign in</Text>
         </TouchableOpacity>
 
-        <Text style={styles.termsText}>
-          By continuing you agree to our Terms & Privacy Policy
-        </Text>
+        <View style={styles.terms}>
+          <Text style={styles.termsText}>
+            By continuing you agree to our Terms &amp; Privacy Policy
+          </Text>
+        </View>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
+const MUTED = "rgba(255,255,255,0.85)";
+
+/**
+ * The badge is not in the Figma frame, so these two are our own call: the logo
+ * hangs above the midpoint the copy is anchored to, leaving LOGO_GAP between
+ * its bottom edge and the tagline.
+ */
+const LOGO_SIZE = 148;
+const LOGO_GAP = 36;
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-    justifyContent: "space-between",
-    padding: 24,
-  },
-  content: {
-    flex: 1,
-    justifyContent: "center",
+  root: { flex: 1, backgroundColor: Brand.ink },
+  fill: { ...FillParent, opacity: 0.4 },
+  logoWrap: {
+    position: "absolute",
+    top: "50%",
+    left: 0,
+    right: 0,
+    marginTop: -(LOGO_SIZE + LOGO_GAP),
     alignItems: "center",
-    paddingHorizontal: 10,
   },
-  logoContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "#DA291C",
-    justifyContent: "center",
+  logo: { width: LOGO_SIZE, height: LOGO_SIZE, borderRadius: LOGO_SIZE / 2 },
+  copy: {
+    position: "absolute",
+    top: "50%",
+    left: 0,
+    right: 0,
     alignItems: "center",
-    marginBottom: 20,
-  },
-  logoEmoji: { fontSize: 36 },
-  brandTitle: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: "#111",
-    letterSpacing: 1,
-    marginBottom: 8,
+    paddingHorizontal: 24,
   },
   tagline: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#666",
-    letterSpacing: 0.5,
-    marginBottom: 20,
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: 0.48,
+    color: MUTED,
+    textAlign: "center",
   },
   description: {
+    marginTop: 6,
+    width: 279,
+    fontSize: 15,
+    lineHeight: 23,
+    color: MUTED,
     textAlign: "center",
-    color: "#777",
-    fontSize: 13,
-    lineHeight: 20,
-    paddingHorizontal: 20,
   },
-  footer: { width: "100%", paddingBottom: 20 },
+  footer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 14,
+    paddingBottom: 40,
+    gap: 12,
+  },
   primaryButton: {
-    backgroundColor: "#DA291C",
-    borderRadius: 24,
-    height: 48,
-    justifyContent: "center",
+    backgroundColor: Brand.red,
+    borderRadius: 14,
+    paddingVertical: 16,
     alignItems: "center",
-    marginBottom: 12,
+    justifyContent: "center",
   },
-  primaryButtonText: { color: "#FFFFFF", fontSize: 15, fontWeight: "bold" },
+  primaryButtonText: {
+    color: Brand.white,
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: "600",
+  },
   secondaryButton: {
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 24,
-    height: 48,
-    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: "#E2E2E2",
+    borderRadius: 14,
+    paddingVertical: 16,
     alignItems: "center",
-    marginBottom: 16,
+    justifyContent: "center",
   },
-  secondaryButtonText: { color: "#111", fontSize: 15, fontWeight: "bold" },
-  termsText: { textAlign: "center", fontSize: 10, color: "#999" },
+  secondaryButtonText: {
+    color: Brand.white,
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: "600",
+  },
+  terms: { paddingTop: 8, alignItems: "center" },
+  termsText: {
+    color: "#9A9A9A",
+    fontSize: 11,
+    lineHeight: 15,
+    textAlign: "center",
+  },
 });

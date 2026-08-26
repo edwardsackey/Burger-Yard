@@ -1,7 +1,18 @@
-import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import { apiFetch } from "@/api";
+import { FillParent } from "@/constants/brand";
 import {
-  Alert,
+  BRAND_IMAGES,
+  DEAL_ID,
+  PRODUCTS,
+  formatPrice,
+  getDeal,
+} from "@/constants/catalog";
+import { PromoSlider } from "@/components/promo-slider";
+import { useCart, useNotifications } from "@/store/app-store";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useState } from "react";
+import {
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,77 +24,38 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export default function HomeScreen() {
   const router = useRouter();
   const [activeCategory, setActiveCategory] = useState("All");
-  const [cartCount, setCartCount] = useState(2); // Simulated cart items count
+  const { itemCount, addItem } = useCart();
+  const { unreadCount } = useNotifications();
+  const [deliveryLabel, setDeliveryLabel] = useState("Add an address");
 
-  // Menu items list with categories
-  const menuItems = [
-    {
-      id: "1",
-      name: "Single Cheese Burger",
-      category: "Burgers",
-      price: "GHS 70",
-      rating: "4.8",
-      emoji: "🍔",
-    },
-    {
-      id: "2",
-      name: "Double Cheese Burger",
-      category: "Burgers",
-      price: "GHS 100",
-      rating: "4.9",
-      emoji: "🍔",
-    },
-    {
-      id: "3",
-      name: "Crispy Chicken Burger",
-      category: "Burgers",
-      price: "GHS 85",
-      rating: "4.7",
-      emoji: "🍗",
-    },
-    {
-      id: "4",
-      name: "Loaded French Fries",
-      category: "Sides",
-      price: "GHS 40",
-      rating: "4.6",
-      emoji: "🍟",
-    },
-    {
-      id: "5",
-      name: "Onion Rings",
-      category: "Sides",
-      price: "GHS 35",
-      rating: "4.5",
-      emoji: "🧅",
-    },
-    {
-      id: "6",
-      name: "Coca-Cola (Cold)",
-      category: "Drinks",
-      price: "GHS 15",
-      rating: "4.9",
-      emoji: "🥤",
-    },
-    {
-      id: "7",
-      name: "Sprite / Fanta",
-      category: "Drinks",
-      price: "GHS 15",
-      rating: "4.8",
-      emoji: "🥤",
-    },
-  ];
+  // Re-checked every time the screen gains focus, so coming back from
+  // Saved Addresses after adding/switching one reflects here immediately.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      apiFetch("/addresses")
+        .then((addresses) => {
+          if (cancelled) return;
+          const active = addresses.find((a: any) => a.isDefault) ?? addresses[0];
+          if (active) setDeliveryLabel(active.label);
+        })
+        .catch(() => {
+          // Not signed in yet, or request failed — keep the prompt to add one.
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, []),
+  );
 
+  const deal = getDeal();
+
+  // The deal already has the banner directly above, so keep it out of the grid.
+  const browsable = PRODUCTS.filter((item) => item.id !== DEAL_ID);
   const filteredItems =
     activeCategory === "All"
-      ? menuItems
-      : menuItems.filter((item) => item.category === activeCategory);
-
-  const handleAddToCart = (itemName: string) => {
-    setCartCount((prev) => prev + 1);
-    Alert.alert("Added to Cart", `${itemName} has been added to your cart!`);
-  };
+      ? browsable
+      : browsable.filter((item) => item.category === activeCategory);
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -95,7 +67,7 @@ export default function HomeScreen() {
             style={styles.locationRow}
             onPress={() => router.push("/saved-addresses")}
           >
-            <Text style={styles.locationText}>Ayeduase New Site</Text>
+            <Text style={styles.locationText}>{deliveryLabel}</Text>
             <Text style={styles.chevron}>▾</Text>
           </TouchableOpacity>
         </View>
@@ -106,7 +78,7 @@ export default function HomeScreen() {
             onPress={() => router.push("/notifications")}
           >
             <Text style={styles.iconEmoji}>🔔</Text>
-            <View style={styles.notifBadge} />
+            {unreadCount > 0 && <View style={styles.notifBadge} />}
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -114,9 +86,9 @@ export default function HomeScreen() {
             onPress={() => router.push("/(tabs)/cart")}
           >
             <Text style={styles.iconEmoji}>🛒</Text>
-            {cartCount > 0 && (
+            {itemCount > 0 && (
               <View style={styles.cartBadge}>
-                <Text style={styles.cartBadgeText}>{cartCount}</Text>
+                <Text style={styles.cartBadgeText}>{itemCount}</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -141,23 +113,33 @@ export default function HomeScreen() {
 
         {/* Hero Promo Banner */}
         <View style={styles.banner}>
+          {/* A plain product shot, not one of the promo posters - those carry
+              their own baked-in headline and fight with the copy below. */}
+          <Image
+            source={BRAND_IMAGES.hero}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+          />
+          <View style={styles.bannerScrim} />
           <View style={styles.bannerTextContainer}>
             <View style={styles.bannerTag}>
               <Text style={styles.bannerTagText}>WEEKEND SPECIAL</Text>
             </View>
-            <Text style={styles.bannerTitle}>Double Yard Deal</Text>
+            {/* Name, blurb and price all come from the deal itself, so the
+                banner cannot advertise a figure its detail screen disagrees
+                with. */}
+            <Text style={styles.bannerTitle}>{deal.name}</Text>
             <Text style={styles.bannerSub}>
-              Get 2 Double Cheese Burgers + Large Fries for GHS 180
+              {deal.desc} • {formatPrice(deal.price)}
             </Text>
 
             <TouchableOpacity
               style={styles.bannerBtn}
-              onPress={() => router.push("/product-detail")}
+              onPress={() => router.push(`/product-detail?id=${deal.id}`)}
             >
               <Text style={styles.bannerBtnText}>Order now</Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.bannerEmoji}>🍔</Text>
         </View>
 
         {/* Category Pills Filter */}
@@ -193,6 +175,9 @@ export default function HomeScreen() {
           ))}
         </ScrollView>
 
+        {/* Non-interactive promo banner that slides between the flyers */}
+        <PromoSlider />
+
         {/* Section Title */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitleText}>
@@ -209,9 +194,13 @@ export default function HomeScreen() {
             <View key={item.id} style={styles.card}>
               <TouchableOpacity
                 style={styles.cardImageContainer}
-                onPress={() => router.push("/product-detail")}
+                onPress={() => router.push(`/product-detail?id=${item.id}`)}
               >
-                <Text style={styles.cardEmoji}>{item.emoji}</Text>
+                <Image
+                  source={item.image}
+                  style={styles.cardImage}
+                  resizeMode={item.fit}
+                />
                 <View style={styles.ratingBadge}>
                   <Text style={styles.ratingText}>★ {item.rating}</Text>
                 </View>
@@ -219,7 +208,7 @@ export default function HomeScreen() {
 
               <View style={styles.cardInfo}>
                 <TouchableOpacity
-                  onPress={() => router.push("/product-detail")}
+                  onPress={() => router.push(`/product-detail?id=${item.id}`)}
                 >
                   <Text style={styles.itemName} numberOfLines={1}>
                     {item.name}
@@ -228,10 +217,10 @@ export default function HomeScreen() {
                 <Text style={styles.itemCategory}>{item.category}</Text>
 
                 <View style={styles.cardFooter}>
-                  <Text style={styles.itemPrice}>{item.price}</Text>
+                  <Text style={styles.itemPrice}>{formatPrice(item.price)}</Text>
                   <TouchableOpacity
                     style={styles.addBtn}
-                    onPress={() => handleAddToCart(item.name)}
+                    onPress={() => addItem(item.id)}
                   >
                     <Text style={styles.addBtnText}>+</Text>
                   </TouchableOpacity>
@@ -260,7 +249,7 @@ const styles = StyleSheet.create({
   locationLabel: {
     fontSize: 10,
     fontWeight: "bold",
-    color: "#DA291C",
+    color: "#D62828",
     letterSpacing: 0.5,
   },
   locationRow: { flexDirection: "row", alignItems: "center", marginTop: 2 },
@@ -289,13 +278,13 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#DA291C",
+    backgroundColor: "#D62828",
   },
   cartBadge: {
     position: "absolute",
     top: -4,
     right: -4,
-    backgroundColor: "#DA291C",
+    backgroundColor: "#D62828",
     borderRadius: 10,
     minWidth: 18,
     height: 18,
@@ -322,15 +311,18 @@ const styles = StyleSheet.create({
     backgroundColor: "#111",
     borderRadius: 20,
     padding: 20,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
     marginBottom: 20,
     overflow: "hidden",
+    minHeight: 176,
+    justifyContent: "center",
   },
-  bannerTextContainer: { flex: 1, paddingRight: 10 },
+  bannerScrim: {
+    ...FillParent,
+    backgroundColor: "rgba(0,0,0,0.45)",
+  },
+  bannerTextContainer: { paddingRight: 10 },
   bannerTag: {
-    backgroundColor: "#DA291C",
+    backgroundColor: "#D62828",
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 4,
@@ -356,14 +348,13 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   bannerBtn: {
-    backgroundColor: "#DA291C",
+    backgroundColor: "#D62828",
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 16,
     alignSelf: "flex-start",
   },
   bannerBtnText: { color: "#FFF", fontSize: 12, fontWeight: "bold" },
-  bannerEmoji: { fontSize: 56 },
   categoriesRow: { gap: 8, marginBottom: 20 },
   categoryPill: {
     paddingVertical: 8,
@@ -373,7 +364,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E5E7EB",
   },
-  categoryPillActive: { backgroundColor: "#DA291C", borderColor: "#DA291C" },
+  categoryPillActive: { backgroundColor: "#D62828", borderColor: "#D62828" },
   categoryText: { fontSize: 13, fontWeight: "600", color: "#444" },
   categoryTextActive: { color: "#FFF" },
   sectionHeader: {
@@ -383,12 +374,14 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionTitleText: { fontSize: 16, fontWeight: "bold", color: "#111" },
-  seeAllText: { fontSize: 13, fontWeight: "bold", color: "#DA291C" },
+  seeAllText: { fontSize: 13, fontWeight: "bold", color: "#D62828" },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    gap: 14,
+    // Row gap only - a column gap on top of the 48% widths pushes the
+    // second card onto its own line at 390px.
+    rowGap: 14,
   },
   card: {
     width: "48%",
@@ -400,13 +393,14 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   cardImageContainer: {
-    height: 110,
-    backgroundColor: "#F9FAFB",
+    height: 120,
+    // white, so letterboxed packshots blend into their own backdrop
+    backgroundColor: "#FFFFFF",
     justifyContent: "center",
     alignItems: "center",
     position: "relative",
   },
-  cardEmoji: { fontSize: 44 },
+  cardImage: { width: "100%", height: "100%" },
   ratingBadge: {
     position: "absolute",
     top: 8,
@@ -430,12 +424,12 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  itemPrice: { fontSize: 14, fontWeight: "bold", color: "#DA291C" },
+  itemPrice: { fontSize: 14, fontWeight: "bold", color: "#D62828" },
   addBtn: {
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: "#DA291C",
+    backgroundColor: "#D62828",
     justifyContent: "center",
     alignItems: "center",
   },

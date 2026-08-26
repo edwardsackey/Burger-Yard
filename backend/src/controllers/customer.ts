@@ -2,23 +2,9 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import prisma from '../prisma';
 
-export const getRestaurants = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const restaurants = await prisma.restaurant.findMany({
-      select: { id: true, name: true, description: true, address: true, rating: true }
-    });
-    res.json(restaurants);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
 export const getMenu = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const restaurantId = parseInt(req.params.id);
-    const menu = await prisma.menuItem.findMany({
-      where: { restaurantId }
-    });
+    const menu = await prisma.menuItem.findMany({ orderBy: { id: 'asc' } });
     res.json(menu);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
@@ -28,11 +14,19 @@ export const getMenu = async (req: AuthRequest, res: Response): Promise<void> =>
 export const placeOrder = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user!.id;
-    const { restaurantId, items } = req.body; 
-    // items should be [{ menuItemId: 1, quantity: 2 }]
+    const { items, addressId, landmark, phone, paymentMethod, momoNetwork, deliveryFee } = req.body;
+    // items should be [{ menuItemId: 1, quantity: 2, extras?: [{ name, price }] }]
 
-    // Fetch prices to calculate total
-    let total_amount = 0;
+    if (!Array.isArray(items) || items.length === 0) {
+      res.status(400).json({ message: 'Cart is empty' });
+      return;
+    }
+    if (!phone || !paymentMethod) {
+      res.status(400).json({ message: 'phone and paymentMethod are required' });
+      return;
+    }
+
+    let subtotal = 0;
     const orderItemsData = [];
 
     for (const item of items) {
@@ -41,30 +35,36 @@ export const placeOrder = async (req: AuthRequest, res: Response): Promise<void>
         res.status(400).json({ message: `Menu item ${item.menuItemId} not found` });
         return;
       }
-      total_amount += menuItem.price * item.quantity;
+      const extras = Array.isArray(item.extras) ? item.extras : [];
+      const extrasTotal = extras.reduce((sum: number, e: { price?: number }) => sum + (e.price ?? 0), 0);
+      const unitPrice = menuItem.price + extrasTotal;
+      subtotal += unitPrice * item.quantity;
       orderItemsData.push({
         menuItemId: item.menuItemId,
         quantity: item.quantity,
-        price_at_time_of_order: menuItem.price
+        price_at_time_of_order: unitPrice,
+        extras: extras.length ? extras : undefined,
       });
     }
 
-    // Create the order transaction
+    const fee = typeof deliveryFee === 'number' ? deliveryFee : 25;
+    const total_amount = subtotal + fee;
+
     const order = await prisma.order.create({
       data: {
         userId,
-        restaurantId,
+        addressId: addressId ?? undefined,
+        landmark,
+        phone,
+        paymentMethod,
+        momoNetwork: momoNetwork ?? undefined,
+        deliveryFee: fee,
         total_amount,
         status: 'PENDING',
-        orderItems: {
-          create: orderItemsData
-        }
+        orderItems: { create: orderItemsData },
       },
-      include: { orderItems: true }
+      include: { orderItems: true },
     });
-
-    // TODO: Trigger Paystack initialization here
-    // TODO: Trigger POS Integration webhook here
 
     res.status(201).json({ message: 'Order placed successfully', order });
   } catch (error) {
@@ -78,7 +78,7 @@ export const getOrderStatus = async (req: AuthRequest, res: Response): Promise<v
     const orderId = parseInt(req.params.id);
     const order = await prisma.order.findUnique({
       where: { id: orderId },
-      include: { orderItems: { include: { menuItem: true } } }
+      include: { orderItems: { include: { menuItem: true } }, address: true },
     });
 
     if (!order) {
@@ -104,7 +104,7 @@ export const getMyOrders = async (req: AuthRequest, res: Response): Promise<void
     const orders = await prisma.order.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
-      include: { restaurant: { select: { name: true } } }
+      include: { orderItems: { include: { menuItem: true } } },
     });
     res.json(orders);
   } catch (error) {

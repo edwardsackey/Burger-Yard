@@ -1,8 +1,10 @@
+import { TopSheet } from "@/components/top-sheet";
+import { NETWORKS, getNetwork, type NetworkId } from "@/constants/networks";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
     Alert,
-    Modal,
+    Image,
     ScrollView,
     StyleSheet,
     Text,
@@ -12,27 +14,26 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+/**
+ * A saved wallet. It stores the network rather than a display name so the
+ * logo, the wallet name and the row can never drift apart.
+ */
+type Method = {
+  id: string;
+  network: NetworkId;
+  val: string;
+  default: boolean;
+};
+
 export default function PaymentMethodsScreen() {
   const router = useRouter();
-  const [methods, setMethods] = useState([
-    {
-      id: "1",
-      name: "MTN Mobile Money",
-      type: "MoMo",
-      val: "+233 54 ••• 7440",
-      default: true,
-    },
-    {
-      id: "2",
-      name: "Telecel Cash",
-      type: "MoMo",
-      val: "+233 20 ••• 1928",
-      default: false,
-    },
+  const [methods, setMethods] = useState<Method[]>([
+    { id: "1", network: "mtn", val: "+233 54 ••• 7440", default: true },
+    { id: "2", network: "telecel", val: "+233 20 ••• 1928", default: false },
   ]);
 
   const [modalVisible, setModalVisible] = useState(false);
-  const [providerName, setProviderName] = useState("MTN MoMo");
+  const [provider, setProvider] = useState<NetworkId>("mtn");
   const [accountNumber, setAccountNumber] = useState("");
 
   const handleSetDefault = (id: string) => {
@@ -48,10 +49,9 @@ export default function PaymentMethodsScreen() {
       return;
     }
 
-    const newMethod = {
+    const newMethod: Method = {
       id: Date.now().toString(),
-      name: providerName,
-      type: "MoMo",
+      network: provider,
       val: accountNumber,
       default: methods.length === 0,
     };
@@ -83,14 +83,24 @@ export default function PaymentMethodsScreen() {
             style={[styles.card, item.default && styles.cardActive]}
           >
             <View style={styles.cardTop}>
-              <Text style={styles.payName}>{item.name}</Text>
+              <Image
+                source={getNetwork(item.network).logo}
+                style={styles.cardLogo}
+                resizeMode="cover"
+                accessibilityLabel={getNetwork(item.network).label}
+              />
+              <View style={styles.cardText}>
+                <Text style={styles.payName}>
+                  {getNetwork(item.network).wallet}
+                </Text>
+                <Text style={styles.payVal}>{item.val}</Text>
+              </View>
               {item.default && (
                 <View style={styles.defaultBadge}>
                   <Text style={styles.defaultText}>DEFAULT</Text>
                 </View>
               )}
             </View>
-            <Text style={styles.payVal}>{item.val}</Text>
 
             <View style={styles.cardActions}>
               {!item.default ? (
@@ -120,62 +130,66 @@ export default function PaymentMethodsScreen() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Add Method Modal */}
-      <Modal visible={modalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Add Payment Method</Text>
-
-            <Text style={styles.label}>Provider</Text>
-            <View style={styles.providerRow}>
-              {["MTN MoMo", "Telecel Cash", "AT Cash"].map((p) => (
-                <TouchableOpacity
-                  key={p}
-                  style={[
-                    styles.providerPill,
-                    providerName === p && styles.providerPillActive,
-                  ]}
-                  onPress={() => setProviderName(p)}
-                >
-                  <Text
-                    style={[
-                      styles.providerText,
-                      providerName === p && styles.providerTextActive,
-                    ]}
-                  >
-                    {p}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Text style={styles.label}>Account / Phone Number</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. 0543927440"
-              placeholderTextColor="#999"
-              keyboardType="phone-pad"
-              value={accountNumber}
-              onChangeText={setAccountNumber}
-            />
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.cancelBtn}
-                onPress={() => setModalVisible(false)}
+      {/* Comes down from the top, and a tap anywhere inside puts the
+          number pad away so the buttons stay reachable. */}
+      <TopSheet
+        visible={modalVisible}
+        title="Add payment method"
+        subtitle="Mobile money is charged at checkout."
+        onClose={() => setModalVisible(false)}
+        footer={
+          <>
+            <TouchableOpacity
+              style={styles.cancelBtn}
+              onPress={() => setModalVisible(false)}
+            >
+              <Text style={styles.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.saveBtn} onPress={handleAddMethod}>
+              <Text style={styles.saveText}>Save method</Text>
+            </TouchableOpacity>
+          </>
+        }
+      >
+        <Text style={styles.label}>Provider</Text>
+        <View style={styles.providerRow}>
+          {NETWORKS.map((n) => (
+            <TouchableOpacity
+              key={n.id}
+              style={[
+                styles.providerPill,
+                provider === n.id && styles.providerPillActive,
+              ]}
+              onPress={() => setProvider(n.id)}
+            >
+              <Image
+                source={n.logo}
+                style={styles.providerLogo}
+                resizeMode="cover"
+                accessibilityLabel={n.label}
+              />
+              <Text
+                style={[
+                  styles.providerText,
+                  provider === n.id && styles.providerTextActive,
+                ]}
               >
-                <Text style={styles.cancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.saveBtn}
-                onPress={handleAddMethod}
-              >
-                <Text style={styles.saveText}>Save Method</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+                {n.wallet}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
-      </Modal>
+
+        <Text style={styles.label}>Account or phone number</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="e.g. 0543927440"
+          placeholderTextColor="#9CA3AF"
+          keyboardType="phone-pad"
+          value={accountNumber}
+          onChangeText={setAccountNumber}
+        />
+      </TopSheet>
     </SafeAreaView>
   );
 }
@@ -203,13 +217,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E5E7EB",
   },
-  cardActive: { borderColor: "#DA291C", borderWidth: 1.5 },
+  cardActive: { borderColor: "#D62828", borderWidth: 1.5 },
   cardTop: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 4,
+    gap: 12,
+    marginBottom: 12,
   },
+  cardLogo: { width: 54, height: 36, borderRadius: 8, overflow: "hidden" },
+  cardText: { flex: 1 },
   payName: { fontSize: 15, fontWeight: "bold", color: "#111" },
   defaultBadge: {
     backgroundColor: "#FEE2E2",
@@ -217,8 +233,8 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 4,
   },
-  defaultText: { fontSize: 9, fontWeight: "bold", color: "#DA291C" },
-  payVal: { fontSize: 13, color: "#666", marginBottom: 12 },
+  defaultText: { fontSize: 9, fontWeight: "bold", color: "#D62828" },
+  payVal: { fontSize: 13, color: "#666", marginTop: 2 },
   cardActions: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -227,11 +243,11 @@ const styles = StyleSheet.create({
     borderTopColor: "#F3F4F6",
     paddingTop: 10,
   },
-  setDefaultText: { fontSize: 12, fontWeight: "bold", color: "#DA291C" },
+  setDefaultText: { fontSize: 12, fontWeight: "bold", color: "#D62828" },
   deleteText: { fontSize: 12, fontWeight: "bold", color: "#9CA3AF" },
   addBtn: {
     borderWidth: 1.5,
-    borderColor: "#DA291C",
+    borderColor: "#D62828",
     borderStyle: "dashed",
     borderRadius: 16,
     height: 50,
@@ -240,7 +256,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     marginTop: 10,
   },
-  addBtnText: { color: "#DA291C", fontSize: 14, fontWeight: "bold" },
+  addBtnText: { color: "#D62828", fontSize: 14, fontWeight: "bold" },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
@@ -264,14 +280,22 @@ const styles = StyleSheet.create({
   providerPill: {
     flex: 1,
     paddingVertical: 10,
+    paddingHorizontal: 6,
     borderRadius: 10,
     backgroundColor: "#F3F4F6",
     alignItems: "center",
+    gap: 7,
     borderWidth: 1,
     borderColor: "#E5E7EB",
   },
-  providerPillActive: { backgroundColor: "#DA291C", borderColor: "#DA291C" },
-  providerText: { fontSize: 12, fontWeight: "bold", color: "#444" },
+  providerPillActive: { backgroundColor: "#D62828", borderColor: "#D62828" },
+  providerLogo: { width: 48, height: 32, borderRadius: 7, overflow: "hidden" },
+  providerText: {
+    fontSize: 11,
+    fontWeight: "bold",
+    color: "#444",
+    textAlign: "center",
+  },
   providerTextActive: { color: "#FFF" },
   input: {
     backgroundColor: "#F3F4F6",
@@ -295,7 +319,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 46,
     borderRadius: 12,
-    backgroundColor: "#DA291C",
+    backgroundColor: "#D62828",
     justifyContent: "center",
     alignItems: "center",
   },

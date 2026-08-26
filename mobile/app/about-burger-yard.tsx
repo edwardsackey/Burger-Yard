@@ -1,6 +1,8 @@
+import { BRAND_IMAGES } from "@/constants/catalog";
 import { useRouter } from "expo-router";
 import React from "react";
 import {
+    Image,
     ScrollView,
     StyleSheet,
     Text,
@@ -24,13 +26,17 @@ export default function AboutScreen() {
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.logoBox}>
-          <Text style={styles.emoji}>🍔</Text>
+          <Image
+            source={BRAND_IMAGES.logo}
+            style={styles.logo}
+            resizeMode="contain"
+          />
           <Text style={styles.appName}>THE BURGER YARD</Text>
           <Text style={styles.version}>Version 1.0.4</Text>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.title}>Don't be shy, take a bite</Text>
+          <Text style={styles.title}>Don&apos;t be shy, take a bite</Text>
           <Text style={styles.body}>
             Born in Ayeduase and expanding across Ghana, The Burger Yard serves
             up uncompromisingly juicy gourmet burgers made with fresh local
@@ -67,7 +73,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: "bold", color: "#111" },
   scrollContent: { padding: 20, gap: 16 },
   logoBox: { alignItems: "center", paddingVertical: 20 },
-  emoji: { fontSize: 56, marginBottom: 10 },
+  logo: { width: 112, height: 112, borderRadius: 56, marginBottom: 12 },
   appName: { fontSize: 18, fontWeight: "900", color: "#111", letterSpacing: 1 },
   version: { fontSize: 12, color: "#888", marginTop: 4 },
   card: {

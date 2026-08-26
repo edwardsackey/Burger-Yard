@@ -12,8 +12,8 @@ datasource db {
 model User {
   id            Int      @id @default(autoincrement())
   name          String
-  email         String   @unique
-  password_hash String
+  email         String?  @unique
+  password_hash String?
   phone         String   @unique
   otp           String?
   otpExpiry     DateTime?
@@ -23,8 +23,22 @@ model User {
   address       String?
   role          Role     @default(CUSTOMER)
   orders        Order[]
+  addresses     Address[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+}
+
+model Address {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+  label     String
+  details   String
+  city      String
+  isDefault Boolean  @default(false)
+  orders    Order[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum Role {
@@ -32,42 +46,16 @@ enum Role {
   ADMIN
 }
 
-model Restaurant {
-  id          Int        @id @default(autoincrement())
+// Single-shop app — no restaurant-selection concept anywhere in the frontend.
+model MenuItem {
+  id          Int         @id @default(autoincrement())
   name        String
   description String?
-  address     String?
-  rating      Float?     @default(0.0)
-  menuItems   MenuItem[]
-  orders      Order[]
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-}
-
-model MenuItem {
-  id           Int         @id @default(autoincrement())
-  restaurant   Restaurant  @relation(fields: [restaurantId], references: [id])
-  restaurantId Int
-  name         String
-  description  String?
-  price        Float
-  image_url    String?
-  orderItems   OrderItem[]
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-}
-
-model Order {
-  id           Int         @id @default(autoincrement())
-  user         User        @relation(fields: [userId], references: [id])
-  userId       Int
-  restaurant   Restaurant  @relation(fields: [restaurantId], references: [id])
-  restaurantId Int
-  total_amount Float
-  status       OrderStatus @default(PENDING)
-  orderItems   OrderItem[]
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  price       Float
+  image_url   String?
+  orderItems  OrderItem[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 }
 
 enum OrderStatus {
@@ -78,12 +66,43 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum PaymentMethod {
+  MOMO
+  CARD
+  CASH
+}
+
+enum MomoNetwork {
+  MTN
+  TELECEL
+  AT
+}
+
+model Order {
+  id            Int           @id @default(autoincrement())
+  user          User          @relation(fields: [userId], references: [id])
+  userId        Int
+  address       Address?      @relation(fields: [addressId], references: [id])
+  addressId     Int?
+  landmark      String?
+  phone         String
+  paymentMethod PaymentMethod
+  momoNetwork   MomoNetwork?
+  deliveryFee   Float
+  total_amount  Float
+  status        OrderStatus   @default(PENDING)
+  orderItems    OrderItem[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
 model OrderItem {
-  id                         Int      @id @default(autoincrement())
-  order                      Order    @relation(fields: [orderId], references: [id])
-  orderId                    Int
-  menuItem                   MenuItem @relation(fields: [menuItemId], references: [id])
-  menuItemId                 Int
-  quantity                   Int
-  price_at_time_of_order     Float
+  id                     Int      @id @default(autoincrement())
+  order                  Order    @relation(fields: [orderId], references: [id])
+  orderId                Int
+  menuItem               MenuItem @relation(fields: [menuItemId], references: [id])
+  menuItemId             Int
+  quantity               Int
+  price_at_time_of_order Float
+  extras                 Json?
 }

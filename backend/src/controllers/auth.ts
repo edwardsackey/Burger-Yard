@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import prisma from '../prisma';
 import crypto from 'crypto';
+import { sendOtpSms } from '../services/sms';
 
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -32,6 +33,10 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(password, salt);
 
+    // Generate a 4-digit OTP
+    const otp = Math.floor(1000 + Math.random() * 9000).toString();
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
     // Create the user
     const user = await prisma.user.create({
       data: {
@@ -40,9 +45,13 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         password_hash,
         phone,
         address,
-        role: role || 'CUSTOMER'
+        role: role || 'CUSTOMER',
+        otp,
+        otpExpiry
       }
     });
+
+    console.log(`\n\n💬 SMS SIMULATION: Welcome to Burger Yard! Your verification code is ${otp}. It expires in 10 minutes.\n\n`);
 
     res.status(201).json({ message: 'User registered successfully', userId: user.id });
   } catch (error) {
@@ -95,6 +104,41 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
+/** Phone-first signup for the customer app: name + phone only, no password. */
+export const signup = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { name, phone } = req.body;
+
+    if (!name || !phone) {
+      res.status(400).json({ message: 'Name and phone are required.' });
+      return;
+    }
+
+    let user = await prisma.user.findUnique({ where: { phone } });
+
+    if (!user) {
+      user = await prisma.user.create({
+        data: { name, phone, role: 'CUSTOMER' },
+      });
+    }
+
+    const otp = Math.floor(1000 + Math.random() * 9000).toString();
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { otp, otpExpiry },
+    });
+
+    await sendOtpSms(phone, otp);
+
+    res.status(200).json({ message: 'OTP sent successfully', userId: user.id });
+  } catch (error) {
+    console.error('Signup error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
 export const requestOtp = async (req: Request, res: Response): Promise<void> => {
   try {
     const { phone } = req.body;
@@ -105,24 +149,18 @@ export const requestOtp = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    if (user.otpAttempts >= 5) {
-      res.status(403).json({ message: 'Account locked due to too many failed OTP attempts. Please login with your email and password.' });
-      return;
-    }
-
-    // Generate a 6-digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const otpExpiry = new Date(Date.now() + 90 * 1000); // 90 seconds (1m 30s) from now
+    // Generate a 4-digit OTP
+    const otp = Math.floor(1000 + Math.random() * 9000).toString();
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     await prisma.user.update({
       where: { id: user.id },
       data: { otp, otpExpiry }
     });
 
-    // Simulate SMS
-    console.log(`\n\n💬 SMS SIMULATION: Your Burger Yard login code is ${otp}. It expires in 90 seconds.\n\n`);
+    await sendOtpSms(phone, otp);
 
-    res.json({ message: 'OTP sent successfully', otp }); // Returning OTP in response for UI testing MVP
+    res.json({ message: 'OTP sent successfully' });
   } catch (error) {
     console.error('OTP request error:', error);
     res.status(500).json({ message: 'Internal server error' });
@@ -140,34 +178,15 @@ export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    if (user.otpAttempts >= 5) {
-      res.status(403).json({ message: 'Account locked. Please login with your email and password.' });
-      return;
-    }
-
     if (user.otp !== otp || !user.otpExpiry || user.otpExpiry < new Date()) {
-      // Increment attempts
-      const newAttempts = user.otpAttempts + 1;
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { 
-          otpAttempts: newAttempts,
-          ...(newAttempts >= 5 ? { otp: null, otpExpiry: null } : {}) // clear OTP if locked
-        }
-      });
-
-      if (newAttempts >= 5) {
-        res.status(403).json({ message: 'Too many incorrect attempts. Account locked for phone login. Please login with your email and password.' });
-      } else {
-        res.status(400).json({ message: `Invalid or expired OTP. You have ${5 - newAttempts} attempts left.` });
-      }
+      res.status(400).json({ message: 'Invalid or expired OTP.' });
       return;
     }
 
-    // Clear the OTP and reset attempts on success
+    // Clear the OTP on success
     await prisma.user.update({
       where: { id: user.id },
-      data: { otp: null, otpExpiry: null, otpAttempts: 0 }
+      data: { otp: null, otpExpiry: null }
     });
 
     // Generate JWT token
@@ -181,7 +200,7 @@ export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
     const secret = process.env.JWT_SECRET || 'fallback_secret';
     const token = jwt.sign(payload, secret, { expiresIn: '1d' });
 
-    res.json({ token, role: user.role, userId: user.id });
+    res.json({ token, role: user.role, userId: user.id, name: user.name, phone: user.phone });
   } catch (error) {
     console.error('OTP verify error:', error);
     res.status(500).json({ message: 'Internal server error' });
@@ -258,6 +277,51 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
     res.json({ message: 'Password has been successfully reset. You can now login.' });
   } catch (error) {
     console.error('Reset password error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const getProfile = async (req: any, res: Response): Promise<void> => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { id: true, name: true, phone: true, email: true, role: true, address: true }
+    });
+    if (!user) {
+      res.status(404).json({ message: 'User not found' });
+      return;
+    }
+    res.json(user);
+  } catch (error) {
+    console.error('Get profile error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const updateProfile = async (req: any, res: Response): Promise<void> => {
+  try {
+    const { name, phone, address } = req.body;
+
+    // Check if phone is being updated to one that already exists
+    if (phone) {
+      const existingUser = await prisma.user.findFirst({
+        where: { phone, id: { not: req.user.id } }
+      });
+      if (existingUser) {
+        res.status(400).json({ message: 'Phone number is already in use by another account' });
+        return;
+      }
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: req.user.id },
+      data: { name, phone, address },
+      select: { id: true, name: true, phone: true, email: true, role: true, address: true }
+    });
+
+    res.json(updatedUser);
+  } catch (error) {
+    console.error('Update profile error:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 };

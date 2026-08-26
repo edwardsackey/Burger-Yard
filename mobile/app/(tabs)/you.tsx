@@ -1,6 +1,9 @@
-import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import { apiFetch } from "@/api";
+import { useAccount, useNotifications } from "@/store/app-store";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useState } from "react";
 import {
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,15 +15,52 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ProfileScreen() {
   const router = useRouter();
+  // Counts, not unread flags, so the totals are still there after a visit.
+  const { items: notifications } = useNotifications();
+  const { account, setAccount } = useAccount();
+  const [orderCount, setOrderCount] = useState(0);
 
   // Profile editable state
   const [isEditing, setIsEditing] = useState(false);
-  const [name, setName] = useState("Ama Mensah");
-  const [phone, setPhone] = useState("+233 54 392 7440");
+  const [name, setName] = useState(account.name);
+  const [phone, setPhone] = useState(account.phone);
+  const [saving, setSaving] = useState(false);
 
-  const handleSave = () => {
-    setIsEditing(false);
-    // You can add logic here to sync with a backend or local storage if needed
+  // Re-checked on focus so placing an order and coming back here reflects
+  // it immediately, same as the home screen's default-address refresh.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      apiFetch("/customer/users/me/orders")
+        .then((orders) => {
+          if (!cancelled) setOrderCount(orders.length);
+        })
+        .catch(() => {
+          // Not signed in yet, or request failed — leave the count at 0.
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, []),
+  );
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await apiFetch("/auth/me", {
+        method: "PUT",
+        body: JSON.stringify({ name, phone }),
+      });
+      setAccount({ name, phone });
+      setIsEditing(false);
+    } catch (error) {
+      Alert.alert(
+        "Couldn't save",
+        error instanceof Error ? error.message : "Please try again.",
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -81,6 +121,7 @@ export default function ProfileScreen() {
 
           <TouchableOpacity
             style={[styles.editBtn, isEditing && styles.saveBtnActive]}
+            disabled={saving}
             onPress={() => (isEditing ? handleSave() : setIsEditing(true))}
           >
             <Text
@@ -89,7 +130,7 @@ export default function ProfileScreen() {
                 isEditing && styles.saveBtnTextActive,
               ]}
             >
-              {isEditing ? "Save" : "Edit"}
+              {isEditing ? (saving ? "Saving…" : "Save") : "Edit"}
             </Text>
           </TouchableOpacity>
         </View>
@@ -100,7 +141,7 @@ export default function ProfileScreen() {
             {
               title: "Order History",
               subtitle: "View past orders",
-              badge: "3",
+              badge: orderCount ? String(orderCount) : null,
               route: "/order-history",
               icon: "📋",
             },
@@ -121,7 +162,9 @@ export default function ProfileScreen() {
             {
               title: "Notifications",
               subtitle: "Order updates & promos",
-              badge: "2",
+              badge: notifications.length
+                ? String(notifications.length)
+                : null,
               route: "/notifications",
               icon: "🔔",
             },
@@ -203,7 +246,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: "#DA291C",
+    backgroundColor: "#D62828",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -240,13 +283,13 @@ const styles = StyleSheet.create({
   },
   editBtn: {
     borderWidth: 1.5,
-    borderColor: "#DA291C",
+    borderColor: "#D62828",
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 16,
   },
-  saveBtnActive: { backgroundColor: "#DA291C" },
-  editBtnText: { color: "#DA291C", fontSize: 12, fontWeight: "bold" },
+  saveBtnActive: { backgroundColor: "#D62828" },
+  editBtnText: { color: "#D62828", fontSize: 12, fontWeight: "bold" },
   saveBtnTextActive: { color: "#FFF" },
   menuList: {
     backgroundColor: "#FFF",
@@ -281,7 +324,7 @@ const styles = StyleSheet.create({
   },
   menuItemSub: { fontSize: 11, color: "#666" },
   badgeContainer: {
-    backgroundColor: "#DA291C",
+    backgroundColor: "#D62828",
     borderRadius: 10,
     width: 20,
     height: 20,
@@ -293,12 +336,12 @@ const styles = StyleSheet.create({
   chevron: { fontSize: 20, color: "#9CA3AF", fontWeight: "bold" },
   signOutBtn: {
     borderWidth: 1.5,
-    borderColor: "#DA291C",
+    borderColor: "#D62828",
     borderRadius: 24,
     height: 50,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#FFF",
   },
-  signOutText: { color: "#DA291C", fontSize: 15, fontWeight: "bold" },
+  signOutText: { color: "#D62828", fontSize: 15, fontWeight: "bold" },
 });

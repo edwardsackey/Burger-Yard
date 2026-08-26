@@ -1,3 +1,4 @@
+import { CONTACTS } from "@/constants/contacts";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -29,7 +30,11 @@ export default function HelpSupportScreen() {
     },
     {
       q: "Can I cancel or modify my order?",
-      a: "Once the kitchen begins preparation, orders cannot be cancelled directly. Please call support immediately for urgent changes.",
+      a: `Once the kitchen begins preparation, orders cannot be cancelled directly. Call ${CONTACTS.call.display} immediately for urgent changes.`,
+    },
+    {
+      q: "How do I reach a real person?",
+      a: `Call ${CONTACTS.call.display} during opening hours, or message ${CONTACTS.whatsapp.display} on WhatsApp any time.`,
     },
   ];
 
@@ -53,20 +58,20 @@ export default function HelpSupportScreen() {
         <View style={styles.contactRow}>
           <TouchableOpacity
             style={styles.contactCard}
-            onPress={() => Linking.openURL("https://wa.me/233543927440")}
+            onPress={() => Linking.openURL(CONTACTS.whatsapp.link)}
           >
             <Text style={styles.contactEmoji}>💬</Text>
             <Text style={styles.contactTitle}>WhatsApp</Text>
-            <Text style={styles.contactSub}>Fastest response</Text>
+            <Text style={styles.contactSub}>{CONTACTS.whatsapp.display}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.contactCard}
-            onPress={() => Linking.openURL("tel:+233543927440")}
+            onPress={() => Linking.openURL(CONTACTS.call.tel)}
           >
             <Text style={styles.contactEmoji}>📞</Text>
             <Text style={styles.contactTitle}>Call Us</Text>
-            <Text style={styles.contactSub}>054 392 7440</Text>
+            <Text style={styles.contactSub}>{CONTACTS.call.display}</Text>
           </TouchableOpacity>
         </View>
 
@@ -185,6 +190,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingRight: 10,
   },
-  chevron: { fontSize: 18, fontWeight: "bold", color: "#DA291C" },
+  chevron: { fontSize: 18, fontWeight: "bold", color: "#D62828" },
   faqAText: { fontSize: 13, color: "#555", marginTop: 10, lineHeight: 18 },
 });

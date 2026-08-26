@@ -1,6 +1,9 @@
+import { getProduct } from "@/constants/catalog";
+import { useCart } from "@/store/app-store";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React from "react";
 import {
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,67 +14,27 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function CartScreen() {
   const router = useRouter();
-
-  // Cart items state with quantities
-  const [cartItems, setCartItems] = useState([
-    {
-      id: "1",
-      name: "Single Cheese Burger",
-      modifiers: "+ Bacon",
-      price: 70,
-      quantity: 2,
-      emoji: "🍔",
-    },
-    {
-      id: "3",
-      name: "Crispy Chicken Burger",
-      modifiers: "Standard",
-      price: 85,
-      quantity: 1,
-      emoji: "🍗",
-    },
-  ]);
-
-  const updateQuantity = (id: string, delta: number) => {
-    setCartItems(
-      (prev) =>
-        prev
-          .map((item) => {
-            if (item.id === id) {
-              const newQty = item.quantity + delta;
-              return newQty > 0 ? { ...item, quantity: newQty } : null;
-            }
-            return item;
-          })
-          .filter(Boolean) as typeof cartItems,
-    );
-  };
-
-  const subtotal = cartItems.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0,
-  );
-  const deliveryFee = subtotal > 0 ? 25 : 0;
-  const total = subtotal + deliveryFee;
+  const { lines, subtotal, deliveryFee, total, changeQuantity, clear } =
+    useCart();
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Your Cart</Text>
-        {cartItems.length > 0 && (
-          <TouchableOpacity onPress={() => setCartItems([])}>
+        {lines.length > 0 && (
+          <TouchableOpacity onPress={clear}>
             <Text style={styles.clearText}>Clear all</Text>
           </TouchableOpacity>
         )}
       </View>
 
-      {cartItems.length === 0 ? (
+      {lines.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyEmoji}>🛒</Text>
           <Text style={styles.emptyTitle}>Your cart is empty</Text>
           <Text style={styles.emptySub}>
-            Looks like you haven't added any burgers to your yard yet.
+            Looks like you haven&apos;t added any burgers to your yard yet.
           </Text>
           <TouchableOpacity
             style={styles.exploreBtn}
@@ -88,37 +51,59 @@ export default function CartScreen() {
           >
             {/* Items List */}
             <View style={styles.list}>
-              {cartItems.map((item) => (
-                <View key={item.id} style={styles.card}>
-                  <View style={styles.emojiBox}>
-                    <Text style={styles.emoji}>{item.emoji}</Text>
-                  </View>
-
-                  <View style={styles.cardInfo}>
-                    <Text style={styles.itemName}>{item.name}</Text>
-                    <Text style={styles.itemModifiers}>{item.modifiers}</Text>
-                    <Text style={styles.itemPrice}>
-                      GHS {item.price * item.quantity}
-                    </Text>
-                  </View>
-
-                  <View style={styles.qtyControl}>
+              {lines.map((line) => {
+                const product = getProduct(line.productId);
+                return (
+                  <View key={line.key} style={styles.card}>
+                    {/* The thumbnail and text open the product so extras can
+                        be changed. The stepper stays outside this, so tapping
+                        a quantity button does not also open the product. */}
                     <TouchableOpacity
-                      style={styles.qtyBtn}
-                      onPress={() => updateQuantity(item.id, -1)}
+                      style={styles.tapArea}
+                      activeOpacity={0.7}
+                      onPress={() =>
+                        router.push(`/product-detail?id=${line.productId}`)
+                      }
                     >
-                      <Text style={styles.qtyBtnText}>-</Text>
+                      <View style={styles.thumbBox}>
+                        <Image
+                          source={product.image}
+                          style={styles.thumb}
+                          resizeMode={product.fit}
+                        />
+                      </View>
+
+                      <View style={styles.cardInfo}>
+                        <Text style={styles.itemName}>{line.name}</Text>
+                        <Text style={styles.itemModifiers}>
+                          {line.extras.length
+                            ? `+ ${line.extras.join(", ")}`
+                            : "Standard"}
+                        </Text>
+                        <Text style={styles.itemPrice}>
+                          GHS {line.unitPrice * line.quantity}
+                        </Text>
+                      </View>
                     </TouchableOpacity>
-                    <Text style={styles.qtyText}>{item.quantity}</Text>
-                    <TouchableOpacity
-                      style={styles.qtyBtn}
-                      onPress={() => updateQuantity(item.id, 1)}
-                    >
-                      <Text style={styles.qtyBtnText}>+</Text>
-                    </TouchableOpacity>
+
+                    <View style={styles.qtyControl}>
+                      <TouchableOpacity
+                        style={styles.qtyBtn}
+                        onPress={() => changeQuantity(line.key, -1)}
+                      >
+                        <Text style={styles.qtyBtnText}>-</Text>
+                      </TouchableOpacity>
+                      <Text style={styles.qtyText}>{line.quantity}</Text>
+                      <TouchableOpacity
+                        style={styles.qtyBtn}
+                        onPress={() => changeQuantity(line.key, 1)}
+                      >
+                        <Text style={styles.qtyBtnText}>+</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
 
             {/* Promo Code Box */}
@@ -175,7 +160,7 @@ const styles = StyleSheet.create({
     borderBottomColor: "#F3F4F6",
   },
   headerTitle: { fontSize: 20, fontWeight: "bold", color: "#111" },
-  clearText: { fontSize: 13, fontWeight: "bold", color: "#DA291C" },
+  clearText: { fontSize: 13, fontWeight: "bold", color: "#D62828" },
   scrollContent: { padding: 20, paddingBottom: 100 },
   list: { gap: 12, marginBottom: 20 },
   card: {
@@ -187,17 +172,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E5E7EB",
   },
-  emojiBox: {
+  tapArea: { flex: 1, flexDirection: "row", alignItems: "center" },
+  thumbBox: {
     width: 56,
     height: 56,
     borderRadius: 12,
-    backgroundColor: "#F9FAFB",
-    justifyContent: "center",
-    alignItems: "center",
+    // white, so the letterboxed packshots blend into their own backdrop
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "#E5E7EB",
+    overflow: "hidden",
   },
-  emoji: { fontSize: 28 },
+  thumb: { width: "100%", height: "100%" },
   cardInfo: { flex: 1, marginLeft: 12 },
   itemName: {
     fontSize: 14,
@@ -206,7 +192,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   itemModifiers: { fontSize: 11, color: "#666", marginBottom: 4 },
-  itemPrice: { fontSize: 14, fontWeight: "bold", color: "#DA291C" },
+  itemPrice: { fontSize: 14, fontWeight: "bold", color: "#D62828" },
   qtyControl: {
     flexDirection: "row",
     alignItems: "center",
@@ -245,7 +231,7 @@ const styles = StyleSheet.create({
   promoText: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#DA291C",
+    color: "#D62828",
     textAlign: "center",
   },
   summaryCard: {
@@ -266,7 +252,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   totalLabel: { fontSize: 15, fontWeight: "bold", color: "#111" },
-  totalVal: { fontSize: 16, fontWeight: "bold", color: "#DA291C" },
+  totalVal: { fontSize: 16, fontWeight: "bold", color: "#D62828" },
   footer: {
     position: "absolute",
     bottom: 0,
@@ -278,7 +264,7 @@ const styles = StyleSheet.create({
     borderTopColor: "#E5E7EB",
   },
   checkoutBtn: {
-    backgroundColor: "#DA291C",
+    backgroundColor: "#D62828",
     borderRadius: 24,
     height: 50,
     justifyContent: "center",
@@ -306,7 +292,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   exploreBtn: {
-    backgroundColor: "#DA291C",
+    backgroundColor: "#D62828",
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 24,

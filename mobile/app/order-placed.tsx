@@ -1,12 +1,12 @@
 import { useRouter } from "expo-router";
 import React from "react";
 import {
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function OrderPlacedScreen() {
   const router = useRouter();
@@ -109,10 +109,10 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   totalLabel: { fontSize: 14, fontWeight: "bold", color: "#111" },
-  totalVal: { fontSize: 16, fontWeight: "bold", color: "#DA291C" },
+  totalVal: { fontSize: 16, fontWeight: "bold", color: "#D62828" },
   footer: { width: "100%", gap: 12 },
   primaryBtn: {
-    backgroundColor: "#DA291C",
+    backgroundColor: "#D62828",
     borderRadius: 24,
     height: 48,
     justifyContent: "center",

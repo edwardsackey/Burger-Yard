@@ -1,10 +1,11 @@
 import { Router } from 'express';
-import { initializePayment, paystackWebhook } from '../controllers/payments';
+import { initializePayment, verifyPayment, paystackWebhook } from '../controllers/payments';
 import { authenticate } from '../middleware/auth';
 
 const router = Router();
 
 router.post('/initialize', authenticate, initializePayment);
-router.post('/webhook', paystackWebhook); 
+router.get('/verify/:reference', authenticate, verifyPayment);
+router.post('/webhook', paystackWebhook);
 
 export default router;

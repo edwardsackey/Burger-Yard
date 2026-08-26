@@ -2,31 +2,12 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import prisma from '../prisma';
 
-export const createRestaurant = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const { name, description, address } = req.body;
-    const restaurant = await prisma.restaurant.create({
-      data: { name, description, address }
-    });
-    res.status(201).json(restaurant);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
 export const addMenuItem = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const restaurantId = parseInt(req.params.id);
     const { name, description, price, image_url } = req.body;
 
     const menuItem = await prisma.menuItem.create({
-      data: {
-        restaurantId,
-        name,
-        description,
-        price,
-        image_url
-      }
+      data: { name, description, price, image_url }
     });
     res.status(201).json(menuItem);
   } catch (error) {
@@ -40,7 +21,7 @@ export const getAllOrders = async (req: AuthRequest, res: Response): Promise<voi
       orderBy: { createdAt: 'desc' },
       include: {
         user: { select: { name: true, phone: true } },
-        restaurant: { select: { name: true } },
+        address: true,
         orderItems: { include: { menuItem: true } }
       }
     });
@@ -53,7 +34,7 @@ export const getAllOrders = async (req: AuthRequest, res: Response): Promise<voi
 export const updateOrderStatus = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const orderId = parseInt(req.params.id);
-    const { status } = req.body; 
+    const { status } = req.body;
     // status should be one of: PENDING, PREPARING, OUT_FOR_DELIVERY, DELIVERED, CANCELLED
 
     const order = await prisma.order.update({

@@ -1,12 +1,12 @@
 import { useRouter } from "expo-router";
 import React from "react";
 import {
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function OrderTrackingScreen() {
   const router = useRouter();
@@ -117,14 +117,14 @@ const styles = StyleSheet.create({
   mockRouteLine: {
     width: 150,
     height: 4,
-    backgroundColor: "#DA291C",
+    backgroundColor: "#D62828",
     transform: [{ rotate: "45deg" }],
   },
   riderPin: {
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: "#DA291C",
+    backgroundColor: "#D62828",
     borderWidth: 3,
     borderColor: "#FFF",
     position: "absolute",
@@ -156,12 +156,12 @@ const styles = StyleSheet.create({
   },
   statusSub: { fontSize: 12, color: "#666" },
   statusTitle: { fontSize: 18, fontWeight: "bold", color: "#111" },
-  etaText: { fontSize: 18, fontWeight: "bold", color: "#DA291C" },
+  etaText: { fontSize: 18, fontWeight: "bold", color: "#D62828" },
   orderId: { fontSize: 11, color: "#666" },
   timeline: { marginBottom: 16, gap: 10 },
   timelineRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: "#D1D5DB" },
-  dotDone: { backgroundColor: "#DA291C" },
+  dotDone: { backgroundColor: "#D62828" },
   timelineText: { fontSize: 13, fontWeight: "600", color: "#111" },
   timelineTextDim: { fontSize: 13, color: "#9CA3AF" },
   time: { fontSize: 11, color: "#666", fontWeight: "normal" },
@@ -217,5 +217,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#FCA5A5",
   },
-  codeDigit: { fontSize: 14, fontWeight: "bold", color: "#DA291C" },
+  codeDigit: { fontSize: 14, fontWeight: "bold", color: "#D62828" },
 });
