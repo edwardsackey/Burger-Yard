@@ -218,6 +218,14 @@ Log major backend changes here going forward — schema changes, new
 integrations, new endpoints, breaking changes to existing ones.
 
 ### 2026-08-29
+- Fixed the live customer menu (added same day, above) using the wrong
+  photo set for the 9 seeded items — it was falling back through
+  `menu-catalog.ts`'s admin-side images instead of this app's own real
+  product photography in `constants/catalog.ts`. Since the seeded
+  `MenuItem` rows share both id and name with `PRODUCTS` by design,
+  `setLiveMenu` now matches by id first (name as a backup) and reuses that
+  entry's real `image`/`fit` — a brand-new admin-added item with no
+  `image_url` still falls back to a generic placeholder, as before.
 - **Wired the admin Menu page to real data** (`GET/POST/PUT/DELETE
   /admin/menu`), replacing the hardcoded `SEED` array. Added `MenuItem.available`.
   The category picker is dynamic (chips from whatever categories already

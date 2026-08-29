@@ -1,4 +1,4 @@
-import { imageForName, PLACEHOLDER_IMAGE } from "@/constants/menu-catalog";
+import { PLACEHOLDER_IMAGE } from "@/constants/menu-catalog";
 import type { ImageSourcePropType } from "react-native";
 
 /** Real menu categories are whatever the admin typed — not a fixed set. */
@@ -180,20 +180,30 @@ type ApiMenuItem = {
   category: string | null;
 };
 
+// The 9 seeded items share ids AND names with PRODUCTS by design (see
+// prisma/seed.ts) — reuse this app's own real photography for those
+// rather than a placeholder, matched by id first (authoritative) and by
+// name as a backup (survives an id drift, e.g. a reseed).
+const STATIC_BY_ID = new Map(PRODUCTS.map((p) => [p.id, p]));
+const STATIC_BY_NAME = new Map(PRODUCTS.map((p) => [p.name.trim().toLowerCase(), p]));
+
 export function setLiveMenu(items: ApiMenuItem[]): void {
-  liveProducts = items.map((it) => ({
-    id: String(it.id),
-    name: it.name,
-    category: it.category ?? "Uncategorized",
-    price: it.price,
-    rating: "4.8",
-    desc: it.description ?? "",
-    image: it.image_url ? { uri: it.image_url } : imageForName(it.name) ?? PLACEHOLDER_IMAGE,
-    fit: "cover",
-    // No per-item flag on the backend for this yet — drinks just don't
-    // take burger toppings, everything else reasonably might.
-    allowsExtras: (it.category ?? "").toLowerCase() !== "drinks",
-  }));
+  liveProducts = items.map((it) => {
+    const known = STATIC_BY_ID.get(String(it.id)) ?? STATIC_BY_NAME.get(it.name.trim().toLowerCase());
+    return {
+      id: String(it.id),
+      name: it.name,
+      category: it.category ?? "Uncategorized",
+      price: it.price,
+      rating: "4.8",
+      desc: it.description ?? "",
+      image: it.image_url ? { uri: it.image_url } : (known?.image ?? PLACEHOLDER_IMAGE),
+      fit: known?.fit ?? "cover",
+      // No per-item flag on the backend for this yet — drinks just don't
+      // take burger toppings, everything else reasonably might.
+      allowsExtras: (it.category ?? "").toLowerCase() !== "drinks",
+    };
+  });
 }
 
 export function getProducts(): Product[] {
