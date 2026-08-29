@@ -123,9 +123,12 @@ unused multi-tenant complexity:
   `city`, `isDefault`). Exactly one address per user is ever marked default
   (enforced in the controller, not the schema).
 - **`MenuItem`** — the product catalog. `name`/`description`/`price`/
-  `image_url`, plus a nullable `category` (used by Reports' top-items table;
-  admin editing of it hasn't been built — see Roadmap). No availability
-  toggle yet.
+  `image_url`/`category` (nullable), and `available` (default `true`) —
+  hides an item from the customer-facing menu without deleting it, which
+  matters because `OrderItem` has a real FK to `MenuItem`: an item with
+  past orders can't be hard-deleted without breaking those orders' line
+  items, so `deleteMenuItem` hides it instead when that's the case (see
+  API surface below).
 - **`Order`** — one customer order: payment method/network, delivery fee,
   landmark, linked address, and status (`NEW → PREPARING → READY → OUT_FOR_DELIVERY → COMPLETED`,
   or `CANCELLED`). Also carries `riderName`/`riderPhone`/`riderVehicle` (set
@@ -159,7 +162,7 @@ unused multi-tenant complexity:
 | `POST /api/auth/signup`, `/request-otp`, `/verify-otp` | Phone-first customer auth (current flow) |
 | `POST /api/auth/register`, `/login`, `/forgot-password`, `/reset-password` | Legacy email/password flow — kept, unused by the current UI |
 | `GET/PUT /api/auth/me` | Profile |
-| `GET /api/customer/menu` | Public menu listing |
+| `GET /api/customer/menu` | Public. Only `available: true` items. **Now actually used** — the customer app fetches this once at startup (`AppStoreProvider`) and caches it in `constants/catalog.ts`'s `getProducts()`; previously the whole customer app (home, menu, product detail, search) rendered a hardcoded local catalog that never reflected real admin changes at all |
 | `POST /api/customer/orders` | Place an order from the cart |
 | `GET /api/customer/orders/:id`, `/users/me/orders` | Order lookup / history |
 | `GET/POST/PUT/DELETE /api/addresses`, `PATCH /:id/default` | Address book CRUD |
@@ -167,7 +170,8 @@ unused multi-tenant complexity:
 | `GET /api/payments/verify/:reference` | Authoritative payment status check (see above) |
 | `POST /api/payments/webhook` | Paystack webhook (production path) |
 | `GET /api/places/nearby-landmark` | Map-tap → landmark + city lookup |
-| `POST /api/admin/menu`, `GET /api/admin/orders`, `PUT /api/admin/orders/:id/status` | Staff-or-owner. `getAllOrders` and the status update both `omit` `deliveryCode`. A status update sends the customer a real Expo push notification (see below) |
+| `GET /api/admin/orders`, `PUT /api/admin/orders/:id/status` | Staff-or-owner. `getAllOrders` and the status update both `omit` `deliveryCode`. A status update sends the customer a real Expo push notification (see below) |
+| `GET/POST/PUT/DELETE /api/admin/menu` | Staff-or-owner. `GET` returns every item (including hidden ones) with a real "sold in the last 7 days" count computed from `OrderItem`. `DELETE` hard-deletes only if the item has zero past orders — otherwise it falls back to hiding it (`available: false`) and tells the frontend so, since hard-deleting would break the receipt on those past orders |
 | `PUT /api/auth/push-token` | Authenticated customer. Saves the device's Expo push token onto `User.pushToken` |
 | `GET /api/admin/customers` | Staff-or-owner. Every `CUSTOMER`-role user with their real order count, lifetime spend, and last order date computed live from `Order` — including ones with zero orders |
 | `POST /api/admin/auth/owner-login` | Owner email/password login |
@@ -182,12 +186,12 @@ unused multi-tenant complexity:
 ## Roadmap — what's still ahead
 
 Admin auth (owner login + staff PIN login), the Customers, Orders,
-Dashboard, and Reports pages are now real — see Changelog. What's still
-mock or unbuilt:
+Dashboard, Reports, and Menu pages are now real, and the customer app's
+menu is now live-backed too — see Changelog. What's still mock or unbuilt:
 
-- Menu management (availability toggle, image upload, and an admin UI to
-  set `category` — the field exists and is populated for the seeded menu,
-  but nothing lets the admin edit it yet)
+- Real image **upload** — the menu form takes a photo URL (paste-in), not
+  a file picker/cloud storage upload. Good enough for now, but a real
+  admin will more often have a photo on their phone than a hosted URL
 - Admin Payments page, backed by real transaction data. `Paid`/`Pending` are
   straightforward from `Order.paid`, but the mock's `Failed`/`Refunded`
   states have no real backing yet — nothing currently records a failed
@@ -214,6 +218,26 @@ Log major backend changes here going forward — schema changes, new
 integrations, new endpoints, breaking changes to existing ones.
 
 ### 2026-08-29
+- **Wired the admin Menu page to real data** (`GET/POST/PUT/DELETE
+  /admin/menu`), replacing the hardcoded `SEED` array. Added `MenuItem.available`.
+  The category picker is dynamic (chips from whatever categories already
+  exist, plus free text for a new one) instead of a fixed list. "Sold (7d)"
+  is now read-only, computed server-side — it was previously a hand-typeable
+  number in the mock's edit form, which never made sense for real data.
+  `DELETE` hard-deletes only when nothing ever ordered the item, otherwise
+  hides it — confirmed live that deleting an item with order history falls
+  back correctly instead of breaking those orders' line items.
+- **Found and fixed a bigger gap while building this: the customer app's
+  menu was never actually connected to the backend at all.** `home.tsx`,
+  `(tabs)/menu.tsx`, `product-detail.tsx`, and `search-favorites.tsx` all
+  rendered a fully hardcoded local catalog (`constants/catalog.ts`) — so
+  every admin menu change (including the new add/edit/delete flow above)
+  would have been invisible to real customers. Fixed by having
+  `AppStoreProvider` fetch `GET /customer/menu` once on app start and cache
+  it in `catalog.ts` (`setLiveMenu`/`getProducts`/`getCategories`), which
+  `getProduct()` — and therefore `addItem()`/cart/checkout — now reads
+  through transparently. Confirmed end-to-end live: an item created via
+  the admin API immediately appeared in `GET /customer/menu`.
 - **Wired the admin Reports page to real data** (`GET /admin/reports`,
   owner-only), replacing every hardcoded `TOP_ITEMS`/`REVENUE`/`PEAK` array.
   Added `Order.acceptedAt`/`readyAt` (stamped by `updateOrderStatus` when

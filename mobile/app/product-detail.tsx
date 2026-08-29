@@ -1,5 +1,5 @@
 import { EXTRAS, formatPrice, getProduct } from "@/constants/catalog";
-import { useCart } from "@/store/app-store";
+import { useCart, useMenuLoaded } from "@/store/app-store";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ProductDetailScreen() {
   const router = useRouter();
+  useMenuLoaded();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const product = getProduct(id ?? "1");
   const { addItem } = useCart();

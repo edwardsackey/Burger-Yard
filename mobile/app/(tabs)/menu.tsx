@@ -1,5 +1,5 @@
-import { PRODUCTS, formatPrice } from "@/constants/catalog";
-import { useCart } from "@/store/app-store";
+import { formatPrice, getCategories, getProducts } from "@/constants/catalog";
+import { useCart, useMenuLoaded } from "@/store/app-store";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -14,13 +14,15 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function MenuScreen() {
   const router = useRouter();
+  useMenuLoaded();
   const [selectedCategory, setSelectedCategory] = useState("All");
   const { itemCount, addItem } = useCart();
 
+  const products = getProducts();
   const filteredItems =
     selectedCategory === "All"
-      ? PRODUCTS
-      : PRODUCTS.filter((item) => item.category === selectedCategory);
+      ? products
+      : products.filter((item) => item.category === selectedCategory);
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -47,7 +49,7 @@ export default function MenuScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filterScroll}
         >
-          {["All", "Burgers", "Sides", "Drinks"].map((cat) => (
+          {["All", ...getCategories()].map((cat) => (
             <TouchableOpacity
               key={cat}
               style={[

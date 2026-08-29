@@ -1,8 +1,10 @@
-import { EXTRAS_PRICES, getProduct } from "@/constants/catalog";
+import { apiFetch } from "@/api";
+import { EXTRAS_PRICES, getProduct, setLiveMenu } from "@/constants/catalog";
 import React, {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -88,6 +90,11 @@ const CartContext = createContext<CartValue | null>(null);
 const NotificationsContext = createContext<NotificationsValue | null>(null);
 const AccountContext = createContext<AccountValue | null>(null);
 const DeliveryLocationContext = createContext<DeliveryLocationValue | null>(null);
+// Just a re-render trigger — screens read the live menu via getProducts()/
+// getCategories() in constants/catalog.ts, not from this value directly.
+// Without this, setLiveMenu() updating that module-level cache wouldn't
+// cause anything already on screen to re-render with the real data.
+const MenuLoadedContext = createContext(false);
 
 function lineKey(productId: string, extras: string[]) {
   return extras.length ? `${productId}::${[...extras].sort().join("+")}` : productId;
@@ -108,6 +115,20 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
   const [account, setAccountState] = useState<Account>({ name: "", phone: "" });
   const [card, setCard] = useState<SavedCard | null>(null);
   const [deliveryLocation, setDeliveryLocation] = useState<DeliveryLocation | null>(null);
+  const [menuLoaded, setMenuLoaded] = useState(false);
+
+  // Public endpoint, no auth needed — loads regardless of sign-in state so
+  // the menu is ready by the time the customer reaches home/menu/checkout.
+  useEffect(() => {
+    apiFetch("/customer/menu")
+      .then((data) => {
+        setLiveMenu(data);
+        setMenuLoaded(true);
+      })
+      .catch(() => {
+        // Offline, or backend unreachable — the static catalog covers this.
+      });
+  }, []);
 
   const setAccount = useCallback((next: Partial<Account>) => {
     setAccountState((prev) => ({ ...prev, ...next }));
@@ -210,16 +231,24 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <AccountContext.Provider value={accountValue}>
-      <DeliveryLocationContext.Provider value={deliveryLocationValue}>
-        <CartContext.Provider value={cart}>
-          <NotificationsContext.Provider value={notifications}>
-            {children}
-          </NotificationsContext.Provider>
-        </CartContext.Provider>
-      </DeliveryLocationContext.Provider>
-    </AccountContext.Provider>
+    <MenuLoadedContext.Provider value={menuLoaded}>
+      <AccountContext.Provider value={accountValue}>
+        <DeliveryLocationContext.Provider value={deliveryLocationValue}>
+          <CartContext.Provider value={cart}>
+            <NotificationsContext.Provider value={notifications}>
+              {children}
+            </NotificationsContext.Provider>
+          </CartContext.Provider>
+        </DeliveryLocationContext.Provider>
+      </AccountContext.Provider>
+    </MenuLoadedContext.Provider>
   );
+}
+
+/** Re-renders the caller once the real menu has loaded — read
+ * getProducts()/getCategories() from constants/catalog.ts afterward. */
+export function useMenuLoaded() {
+  return useContext(MenuLoadedContext);
 }
 
 export function useAccount() {

@@ -83,10 +83,14 @@ model MenuItem {
   description String?
   price       Float
   image_url   String?
-  // Nullable — not every existing item has one yet, and the admin menu
-  // management UI to set it hasn't been built. Reports shows "Uncategorized"
-  // when unset.
+  // Nullable — not every existing item has one yet. Reports shows
+  // "Uncategorized" when unset; the admin menu screen offers existing
+  // categories as chips plus free text for a new one.
   category    String?
+  // Hides it from the customer-facing menu without deleting order history.
+  // Toggled from the admin menu screen; also what a "remove" falls back to
+  // when the item has past orders (see deleteMenuItem).
+  available   Boolean     @default(true)
   orderItems  OrderItem[]
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt

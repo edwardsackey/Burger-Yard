@@ -1,6 +1,8 @@
+import { imageForName, PLACEHOLDER_IMAGE } from "@/constants/menu-catalog";
 import type { ImageSourcePropType } from "react-native";
 
-export type Category = "Burgers" | "Sides" | "Drinks";
+/** Real menu categories are whatever the admin typed — not a fixed set. */
+export type Category = string;
 
 export type Product = {
   id: string;
@@ -161,13 +163,57 @@ export const BRAND_IMAGES = {
   loadingBurger: require("@/assets/images/burger-round.png"),
 } as const;
 
-export function getProduct(id: string): Product {
-  return PRODUCTS.find((p) => p.id === id) ?? PRODUCTS[0];
+// Real menu from the backend, once it's loaded — everything below reads
+// through this instead of the static PRODUCTS array once it's populated.
+// getProduct/addItem/etc. all stay synchronous, since they're called from
+// button presses that can't await a fetch — setLiveMenu is called once
+// from AppStoreProvider on mount, and the static array covers the brief
+// window (or offline case) before that resolves.
+let liveProducts: Product[] | null = null;
+
+type ApiMenuItem = {
+  id: number;
+  name: string;
+  description: string | null;
+  price: number;
+  image_url: string | null;
+  category: string | null;
+};
+
+export function setLiveMenu(items: ApiMenuItem[]): void {
+  liveProducts = items.map((it) => ({
+    id: String(it.id),
+    name: it.name,
+    category: it.category ?? "Uncategorized",
+    price: it.price,
+    rating: "4.8",
+    desc: it.description ?? "",
+    image: it.image_url ? { uri: it.image_url } : imageForName(it.name) ?? PLACEHOLDER_IMAGE,
+    fit: "cover",
+    // No per-item flag on the backend for this yet — drinks just don't
+    // take burger toppings, everything else reasonably might.
+    allowsExtras: (it.category ?? "").toLowerCase() !== "drinks",
+  }));
 }
 
-/** The banner combo, so its copy and its detail screen read from one source. */
+export function getProducts(): Product[] {
+  return liveProducts ?? PRODUCTS;
+}
+
+export function getCategories(): string[] {
+  return [...new Set(getProducts().map((p) => p.category))];
+}
+
+export function getProduct(id: string): Product {
+  const list = getProducts();
+  return list.find((p) => p.id === id) ?? list[0] ?? PRODUCTS[0];
+}
+
+/** The banner combo, so its copy and its detail screen read from one source.
+ * Falls back to the first real item if the seeded id isn't in the live menu
+ * (e.g. it was ever deleted) rather than crashing the home screen. */
 export function getDeal(): Product {
-  return getProduct(DEAL_ID);
+  return getProducts().find((p) => p.id === DEAL_ID) ?? getProducts()[0] ?? PRODUCTS[0];
 }
 
 export function getProductImage(id: string): ImageSourcePropType {

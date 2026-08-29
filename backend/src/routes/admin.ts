@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import { addMenuItem, getAllOrders, getCustomers, updateOrderStatus } from '../controllers/admin';
+import { getAllOrders, getCustomers, updateOrderStatus } from '../controllers/admin';
+import { listMenu, addMenuItem, updateMenuItem, deleteMenuItem } from '../controllers/menu';
 import {
   ownerLogin,
   getActiveStaff,
@@ -23,7 +24,10 @@ router.get('/auth/active-staff', getActiveStaff);
 router.post('/auth/staff-login', staffLogin);
 
 // Staff or owner — the day-to-day admin console screens.
+router.get('/menu', authenticate, requireStaffOrOwner, listMenu);
 router.post('/menu', authenticate, requireStaffOrOwner, addMenuItem);
+router.put('/menu/:id', authenticate, requireStaffOrOwner, updateMenuItem);
+router.delete('/menu/:id', authenticate, requireStaffOrOwner, deleteMenuItem);
 router.get('/orders', authenticate, requireStaffOrOwner, getAllOrders);
 router.get('/customers', authenticate, requireStaffOrOwner, getCustomers);
 router.put('/orders/:id/status', authenticate, requireStaffOrOwner, updateOrderStatus);

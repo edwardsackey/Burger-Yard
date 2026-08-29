@@ -4,7 +4,10 @@ import prisma from '../prisma';
 
 export const getMenu = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const menu = await prisma.menuItem.findMany({ orderBy: { id: 'asc' } });
+    const menu = await prisma.menuItem.findMany({
+      where: { available: true },
+      orderBy: { id: 'asc' },
+    });
     res.json(menu);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });

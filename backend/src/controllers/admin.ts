@@ -12,19 +12,6 @@ const STATUS_MESSAGE: Record<string, string> = {
   CANCELLED: 'Your order was cancelled.',
 };
 
-export const addMenuItem = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const { name, description, price, image_url } = req.body;
-
-    const menuItem = await prisma.menuItem.create({
-      data: { name, description, price, image_url }
-    });
-    res.status(201).json(menuItem);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
 export const getAllOrders = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const orders = await prisma.order.findMany({

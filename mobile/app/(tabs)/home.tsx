@@ -3,12 +3,13 @@ import { FillParent } from "@/constants/brand";
 import {
   BRAND_IMAGES,
   DEAL_ID,
-  PRODUCTS,
   formatPrice,
+  getCategories,
   getDeal,
+  getProducts,
 } from "@/constants/catalog";
 import { PromoSlider } from "@/components/promo-slider";
-import { useCart, useNotifications } from "@/store/app-store";
+import { useCart, useMenuLoaded, useNotifications } from "@/store/app-store";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
@@ -23,6 +24,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function HomeScreen() {
   const router = useRouter();
+  // Re-renders this screen once the real menu has loaded (see MenuLoadedContext).
+  useMenuLoaded();
   const [activeCategory, setActiveCategory] = useState("All");
   const { itemCount, addItem } = useCart();
   const { unreadCount } = useNotifications();
@@ -51,7 +54,7 @@ export default function HomeScreen() {
   const deal = getDeal();
 
   // The deal already has the banner directly above, so keep it out of the grid.
-  const browsable = PRODUCTS.filter((item) => item.id !== DEAL_ID);
+  const browsable = getProducts().filter((item) => item.id !== DEAL_ID);
   const filteredItems =
     activeCategory === "All"
       ? browsable
@@ -148,7 +151,7 @@ export default function HomeScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.categoriesRow}
         >
-          {["All", "Burgers", "Sides", "Drinks", "See All"].map((cat) => (
+          {["All", ...getCategories(), "See All"].map((cat) => (
             <TouchableOpacity
               key={cat}
               style={[

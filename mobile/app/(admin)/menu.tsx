@@ -1,3 +1,4 @@
+import { apiFetch } from "@/api";
 import { useDialog } from "@/components/admin/dialog";
 import { Field, ModalSheet, fieldStyles } from "@/components/admin/modal-sheet";
 import {
@@ -11,8 +12,9 @@ import {
 import { Admin } from "@/constants/admin-theme";
 import { menuImage } from "@/constants/menu-catalog";
 import { useResponsive } from "@/hooks/use-responsive";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   Pressable,
   ScrollView,
@@ -23,58 +25,82 @@ import {
 } from "react-native";
 
 type MenuItem = {
-  id: string;
+  id: number;
   name: string;
   desc: string;
   category: string;
+  imageUrl: string;
   price: number;
   sold: number;
   available: boolean;
 };
 
-const CATEGORIES = ["Burgers", "Sides", "Drinks", "Extras"];
-
-const SEED: MenuItem[] = [
-  { id: "1", name: "Single Cheese Burger", desc: "Beef, cheddar, yard sauce", category: "Burgers", price: 70, sold: 128, available: true },
-  { id: "2", name: "Double Cheese Burger", desc: "Two patties, double cheddar", category: "Burgers", price: 100, sold: 72, available: false },
-  { id: "3", name: "Chicken Burger", desc: "Crispy chicken, cheddar, lettuce", category: "Burgers", price: 95, sold: 96, available: true },
-  { id: "4", name: "Chicken Burger x Fries", desc: "Chicken burger + regular fries", category: "Burgers", price: 120, sold: 40, available: true },
-  { id: "5", name: "Fries Regular", desc: "Crispy golden fries", category: "Sides", price: 25, sold: 64, available: true },
-  { id: "6", name: "Coca-Cola", desc: "Chilled 350ml", category: "Drinks", price: 10, sold: 58, available: true },
-  { id: "7", name: "Bacon", desc: "Add-on", category: "Extras", price: 15, sold: 30, available: true },
-  { id: "8", name: "Extra Cheese", desc: "Add-on", category: "Extras", price: 15, sold: 24, available: true },
-  { id: "9", name: "Extra Patty", desc: "Add-on", category: "Extras", price: 25, sold: 18, available: false },
-];
-
-/** A blank row for the add flow, so add and edit share one form. */
+/** A blank row for the add flow, so add and edit share one form. `id: 0`
+ * marks "not saved yet" — real ids start at 1. */
 const EMPTY: MenuItem = {
-  id: "",
+  id: 0,
   name: "",
   desc: "",
-  category: "Burgers",
+  category: "",
+  imageUrl: "",
   price: 0,
   sold: 0,
   available: true,
 };
 
+function itemImage(item: MenuItem) {
+  return item.imageUrl ? { uri: item.imageUrl } : menuImage(String(item.id));
+}
+
+function fromApi(o: any): MenuItem {
+  return {
+    id: o.id,
+    name: o.name,
+    desc: o.description ?? "",
+    category: o.category ?? "Uncategorized",
+    imageUrl: o.image_url ?? "",
+    price: o.price,
+    sold: o.sold ?? 0,
+    available: o.available,
+  };
+}
+
 export default function AdminMenuScreen() {
   const { isPhone, isDesktop } = useResponsive();
   const { confirm, notify } = useDialog();
-  const [items, setItems] = useState<MenuItem[]>(SEED);
+  const [items, setItems] = useState<MenuItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  // One sheet drives both add and edit; `draft.id` says which.
+  // One sheet drives both add and edit; `draft.id === 0` says which.
   const [draft, setDraft] = useState<MenuItem | null>(null);
-  const isNew = draft?.id === "";
+  const isNew = draft?.id === 0;
+
+  useEffect(() => {
+    apiFetch("/admin/menu")
+      .then((data) => setItems(data.map(fromApi)))
+      .catch(() => {
+        // Left empty — the empty state covers this fine.
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Real categories in use, not a fixed hardcoded list — a new category
+  // typed into the form shows up as its own tab the moment it's saved.
+  const categories = useMemo(
+    () => [...new Set(items.map((i) => i.category))].sort(),
+    [items],
+  );
 
   const counts = useMemo(() => {
     const map: Record<string, number> = { All: items.length };
-    CATEGORIES.forEach((c) => {
+    categories.forEach((c) => {
       map[c] = items.filter((i) => i.category === c).length;
     });
     return map;
-  }, [items]);
+  }, [items, categories]);
 
   const outOfStock = items.filter((i) => !i.available).length;
 
@@ -91,12 +117,21 @@ export default function AdminMenuScreen() {
     });
   }, [items, selectedCategory, searchQuery]);
 
-  const toggleStock = (id: string) =>
-    setItems((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, available: !i.available } : i)),
-    );
+  const toggleStock = async (item: MenuItem) => {
+    const available = !item.available;
+    setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, available } : i)));
+    try {
+      await apiFetch(`/admin/menu/${item.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ available }),
+      });
+    } catch {
+      // Revert — the request didn't actually go through.
+      setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, available: !available } : i)));
+    }
+  };
 
-  const saveDraft = () => {
+  const saveDraft = async () => {
     if (!draft) return;
     if (!draft.name.trim()) {
       notify({ title: "Name required", message: "Give the item a name before saving." });
@@ -107,12 +142,30 @@ export default function AdminMenuScreen() {
       return;
     }
 
-    setItems((prev) =>
-      isNew
-        ? [...prev, { ...draft, id: String(Date.now()) }]
-        : prev.map((i) => (i.id === draft.id ? draft : i)),
-    );
-    setDraft(null);
+    setSaving(true);
+    try {
+      const body = JSON.stringify({
+        name: draft.name.trim(),
+        description: draft.desc.trim() || undefined,
+        price: draft.price,
+        category: draft.category.trim() || undefined,
+        image_url: draft.imageUrl.trim() || undefined,
+        available: draft.available,
+      });
+      const saved = isNew
+        ? await apiFetch("/admin/menu", { method: "POST", body })
+        : await apiFetch(`/admin/menu/${draft.id}`, { method: "PUT", body });
+      const row = fromApi({ ...saved, sold: isNew ? 0 : draft.sold });
+      setItems((prev) => (isNew ? [...prev, row] : prev.map((i) => (i.id === row.id ? row : i))));
+      setDraft(null);
+    } catch (error) {
+      notify({
+        title: "Couldn't save",
+        message: error instanceof Error ? error.message : "Please try again.",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const confirmDelete = async (item: MenuItem) => {
@@ -122,7 +175,27 @@ export default function AdminMenuScreen() {
       confirmLabel: "Remove",
       destructive: true,
     });
-    if (ok) setItems((prev) => prev.filter((i) => i.id !== item.id));
+    if (!ok) return;
+
+    try {
+      const result = await apiFetch(`/admin/menu/${item.id}`, { method: "DELETE" });
+      if (result.deleted) {
+        setItems((prev) => prev.filter((i) => i.id !== item.id));
+      } else {
+        // Has real order history — can't delete without breaking those
+        // orders' line-item display, so it was hidden instead.
+        setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, available: false } : i)));
+        notify({
+          title: "Hidden, not removed",
+          message: `${item.name} has past orders, so it was hidden from the menu instead of deleted — deleting it would break the receipt for those orders.`,
+        });
+      }
+    } catch (error) {
+      notify({
+        title: "Couldn't remove",
+        message: error instanceof Error ? error.message : "Please try again.",
+      });
+    }
   };
 
   return (
@@ -168,7 +241,7 @@ export default function AdminMenuScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.tabsRow}
           >
-            {["All", ...CATEGORIES].map((name) => {
+            {["All", ...categories].map((name) => {
               const active = selectedCategory === name;
               return (
                 <Pressable
@@ -207,7 +280,9 @@ export default function AdminMenuScreen() {
               </View>
             )}
 
-            {filtered.length === 0 ? (
+            {loading ? (
+              <ActivityIndicator style={{ marginVertical: 40 }} color={Admin.red} />
+            ) : filtered.length === 0 ? (
               <View style={styles.emptyBox}>
                 <Icon name="inbox" size={22} color={Admin.textFaint} />
                 <Text style={styles.emptyText}>
@@ -221,7 +296,7 @@ export default function AdminMenuScreen() {
                   <View key={item.id} style={styles.mobileCard}>
                     <View style={styles.mobileTop}>
                       <Image
-                        source={menuImage(item.id)}
+                        source={itemImage(item)}
                         style={styles.thumb}
                         resizeMode="cover"
                       />
@@ -240,7 +315,7 @@ export default function AdminMenuScreen() {
                       <View style={{ flex: 1 }} />
                       <Toggle
                         value={item.available}
-                        onChange={() => toggleStock(item.id)}
+                        onChange={() => toggleStock(item)}
                         label={`${item.name} availability`}
                       />
                       <IconButton
@@ -260,7 +335,7 @@ export default function AdminMenuScreen() {
                   <View key={item.id} style={styles.tableRow}>
                     <View style={[styles.cell, styles.itemCell, { flex: 3 }]}>
                       <Image
-                        source={menuImage(item.id)}
+                        source={itemImage(item)}
                         style={styles.thumb}
                         resizeMode="cover"
                       />
@@ -289,7 +364,7 @@ export default function AdminMenuScreen() {
                     <View style={[styles.cell, styles.statusCell, { flex: 1.4 }]}>
                       <Toggle
                         value={item.available}
-                        onChange={() => toggleStock(item.id)}
+                        onChange={() => toggleStock(item)}
                         label={`${item.name} availability`}
                       />
                       <Text
@@ -330,8 +405,12 @@ export default function AdminMenuScreen() {
         onClose={() => setDraft(null)}
         footer={
           <>
-            <Button label="Cancel" variant="secondary" onPress={() => setDraft(null)} />
-            <Button label={isNew ? "Add item" : "Save changes"} onPress={saveDraft} />
+            <Button label="Cancel" variant="secondary" onPress={() => setDraft(null)} disabled={saving} />
+            <Button
+              label={saving ? "Saving..." : isNew ? "Add item" : "Save changes"}
+              onPress={saveDraft}
+              disabled={saving}
+            />
           </>
         }
       >
@@ -372,25 +451,17 @@ export default function AdminMenuScreen() {
                   />
                 </Field>
               </View>
-              <View style={{ flex: 1 }}>
-                <Field label="Sold (7d)">
-                  <TextInput
-                    style={fieldStyles.input}
-                    value={String(draft.sold)}
-                    onChangeText={(t) =>
-                      setDraft({ ...draft, sold: Number(t.replace(/[^0-9]/g, "")) })
-                    }
-                    keyboardType="number-pad"
-                    placeholder="0"
-                    placeholderTextColor={Admin.textFaint}
-                  />
-                </Field>
-              </View>
+              {!isNew && (
+                <View style={{ flex: 1 }}>
+                  <Text style={fieldStyles.label}>Sold (7d)</Text>
+                  <Text style={styles.readOnlyValue}>{draft.sold}</Text>
+                </View>
+              )}
             </View>
 
             <Field label="Category">
               <View style={styles.chipRow}>
-                {CATEGORIES.map((c) => {
+                {categories.map((c) => {
                   const on = draft.category === c;
                   return (
                     <Pressable
@@ -405,6 +476,25 @@ export default function AdminMenuScreen() {
                   );
                 })}
               </View>
+              <TextInput
+                style={[fieldStyles.input, { marginTop: 8 }]}
+                value={categories.includes(draft.category) ? "" : draft.category}
+                onChangeText={(category) => setDraft({ ...draft, category })}
+                placeholder="Or type a new category"
+                placeholderTextColor={Admin.textFaint}
+              />
+            </Field>
+
+            <Field label="Photo URL (optional)">
+              <TextInput
+                style={fieldStyles.input}
+                value={draft.imageUrl}
+                onChangeText={(imageUrl) => setDraft({ ...draft, imageUrl })}
+                placeholder="https://..."
+                placeholderTextColor={Admin.textFaint}
+                autoCapitalize="none"
+                keyboardType="url"
+              />
             </Field>
 
             <View style={styles.availRow}>
@@ -556,4 +646,8 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   availHint: { fontSize: 11.5, color: Admin.textMuted },
+  readOnlyValue: {
+    fontSize: 13, color: Admin.textMuted, fontWeight: "600",
+    height: 44, textAlignVertical: "center", paddingTop: 12,
+  },
 });

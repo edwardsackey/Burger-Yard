@@ -1,4 +1,5 @@
-import { BRAND_IMAGES, PRODUCTS, formatPrice } from "@/constants/catalog";
+import { BRAND_IMAGES, formatPrice, getProducts } from "@/constants/catalog";
+import { useMenuLoaded } from "@/store/app-store";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -14,13 +15,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function SearchFavoritesScreen() {
   const router = useRouter();
+  useMenuLoaded();
   const [searchQuery, setSearchQuery] = useState("");
 
   // Smart spelling/partial match filtering
   const filteredResults =
     searchQuery.trim() === ""
       ? []
-      : PRODUCTS.filter(
+      : getProducts().filter(
           (item) =>
             item.name
               .toLowerCase()
