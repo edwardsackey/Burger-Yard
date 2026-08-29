@@ -13,6 +13,7 @@ import { Admin } from "@/constants/admin-theme";
 import { imageForName } from "@/constants/menu-catalog";
 import { useAdminSession } from "@/context/AdminSession";
 import { useResponsive } from "@/hooks/use-responsive";
+import { useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -131,6 +132,7 @@ const POLL_MS = 8000;
 export default function AdminOrdersScreen() {
   const { isPhone, isDesktop } = useResponsive();
   const { confirm } = useDialog();
+  const { orderId: orderIdParam } = useLocalSearchParams<{ orderId?: string }>();
   const { riders, loadRiders, addRider } = useAdminSession();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -151,6 +153,16 @@ export default function AdminOrdersScreen() {
     loadRiders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Deep-linked from Dashboard's "Recent orders" (or anywhere else that
+  // passes ?orderId=) — jump straight to that order's detail, not just the
+  // Orders screen in general.
+  useEffect(() => {
+    if (!orderIdParam) return;
+    setSelectedTab("All");
+    setSelectedOrderId(`#${orderIdParam}`);
+    setOpenOnPhone(true);
+  }, [orderIdParam]);
 
   useEffect(() => {
     let cancelled = false;

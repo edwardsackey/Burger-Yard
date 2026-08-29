@@ -116,6 +116,11 @@ export default function AdminDashboardScreen() {
     );
   }, [query, recentOrders]);
 
+  // Jumps to that exact order's detail on the Orders screen, not just the
+  // screen in general — `o.id` here is "#69"-style, the route wants "69".
+  const goToOrder = (id: string) =>
+    router.push({ pathname: "/(admin)/orders", params: { orderId: id.replace("#", "") } });
+
   const buildExport = () => ({
     title: `Recent orders, ${period}`,
     subtitle: "Ayeduase New Site",
@@ -305,7 +310,7 @@ export default function AdminDashboardScreen() {
                   // only way six columns stay readable.
                   <Pressable
                     key={o.id}
-                    onPress={() => router.push("/(admin)/orders")}
+                    onPress={() => goToOrder(o.id)}
                     style={styles.mobileRow}
                   >
                     <View style={styles.mobileRowTop}>
@@ -324,7 +329,7 @@ export default function AdminDashboardScreen() {
                 ) : (
                   <Pressable
                     key={o.id}
-                    onPress={() => router.push("/(admin)/orders")}
+                    onPress={() => goToOrder(o.id)}
                     style={styles.tableRow}
                   >
                     <Text style={[styles.td, styles.tdStrong, { flex: 1 }]}>{o.id}</Text>
