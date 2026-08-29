@@ -22,6 +22,8 @@ type OrderRow = {
   status: DisplayStatus;
   items: string;
   total: number;
+  /** Only set once the order actually delivered (not on cancellation). */
+  deliveredBy: string | null;
 };
 
 // Kitchen/delivery statuses collapse into just two buckets for this list —
@@ -73,6 +75,7 @@ export default function OrderHistoryScreen() {
             )
             .join(", "),
           total: order.total_amount,
+          deliveredBy: order.status === "COMPLETED" ? order.riderName || null : null,
         }));
         setOrders(rows);
       })
@@ -144,7 +147,16 @@ export default function OrderHistoryScreen() {
                   </Text>
                 </View>
               </View>
-              <Text style={styles.itemsSummary}>{order.items}</Text>
+              <Text
+                style={[styles.itemsSummary, order.deliveredBy && { marginBottom: 4 }]}
+              >
+                {order.items}
+              </Text>
+              {order.deliveredBy && (
+                <Text style={styles.deliveredBy}>
+                  Delivered by {order.deliveredBy}
+                </Text>
+              )}
               <View style={styles.cardFooter}>
                 <Text style={styles.price}>GHS {order.total}</Text>
                 {order.status === "Active" ? (
@@ -235,6 +247,7 @@ const styles = StyleSheet.create({
   },
   statusDelText: { fontSize: 10, fontWeight: "bold", color: "#03543F" },
   itemsSummary: { fontSize: 13, color: "#555", marginBottom: 14 },
+  deliveredBy: { fontSize: 11.5, color: "#888", marginBottom: 14 },
   cardFooter: {
     flexDirection: "row",
     justifyContent: "space-between",

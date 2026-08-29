@@ -173,16 +173,22 @@ unused multi-tenant complexity:
 | `GET/POST/PUT/DELETE /api/admin/staff`, `POST /:id/regenerate-pin` | Owner-only staff management. A PIN is only ever returned in plaintext once, from `createStaff`/`regenerateStaffPin` — never retrievable afterward |
 | `GET/POST /api/admin/riders` | Staff-or-owner. Staff can view the roster and add a rider on the fly while assigning a delivery |
 | `PUT/DELETE /api/admin/riders/:id` | Owner-only. Edit/deactivate/remove a rider from the roster |
+| `GET /api/admin/dashboard?period=today\|week\|month` | Owner-only. Real sales/orders/avg-order-value/new-customer stats (with a delta vs the equivalent previous period), a revenue series bucketed to fit the period, best sellers, an hour-of-day order histogram, and the 6 most recent orders — all computed live from `Order`/`OrderItem`/`User`, nothing precomputed or cached |
 
 ## Roadmap — what's still ahead
 
-Admin auth (owner login + staff PIN login), the Customers page, and the
-Orders page are now real — see Changelog. What's still mock or unbuilt:
+Admin auth (owner login + staff PIN login), the Customers, Orders, and
+Dashboard pages are now real — see Changelog. What's still mock or unbuilt:
 
 - Menu management (category, availability, image upload) — `MenuItem` needs
   these fields added when this work starts
-- Admin Payments and Reports pages, backed by real aggregation queries
-  instead of the current hardcoded arrays
+- Admin Payments page, backed by real transaction data. `Paid`/`Pending` are
+  straightforward from `Order.paid`, but the mock's `Failed`/`Refunded`
+  states have no real backing yet — nothing currently records a failed
+  Paystack charge or a refund, so that needs its own small feature first
+- Admin Reports page (deeper analytics beyond what Dashboard now covers —
+  e.g. avg prep time, which needs `acceptedAt`/`readyAt` timestamps that
+  don't exist on `Order` yet)
 - An EAS project is now configured (`extra.eas.projectId` in `app.json`,
   under the `menialshot` Expo account), so `getExpoPushTokenAsync()` can
   actually mint real tokens in Expo Go — no custom dev build required
@@ -205,6 +211,22 @@ Log major backend changes here going forward — schema changes, new
 integrations, new endpoints, breaking changes to existing ones.
 
 ### 2026-08-29
+- **Wired the admin Dashboard to real data** (`GET /admin/dashboard`,
+  owner-only), replacing every hardcoded `STATS`/`SALES`/`BEST_SELLERS`/
+  `PEAK`/`RECENT` array. Stats now include a real delta against the
+  previous equivalent period (yesterday/last week/last month); the sales
+  chart, best-sellers list, and peak-hours histogram are all computed from
+  real orders in the selected period rather than fixed mock numbers.
+- Removed the customer-facing "orders placed" count badge from the
+  profile screen's Order History row — that figure belongs to the admin
+  Customers page, not something shown back to the customer themselves.
+- Customer order history now shows "Delivered by {rider}" on completed
+  orders once the admin has assigned one, using the same `riderName`
+  already returned by `GET /customer/users/me/orders`.
+- Added missing `StatusTone` entries (`Ready`, `Out for delivery`,
+  `Completed`) in the admin theme — these real backend status labels were
+  previously falling through to a generic grey pill because the theme only
+  had the mock's original wording (`On the way`, `Delivered`).
 - **Fixed an order-status auto-advance bug.** The admin Orders screen's
   "busy" guard was a `useRef`, which never triggers a re-render — so the
   action button stayed fully enabled and relabeled itself (e.g. "Accept

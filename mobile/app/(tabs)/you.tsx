@@ -1,7 +1,7 @@
 import { apiFetch } from "@/api";
 import { useAccount, useNotifications } from "@/store/app-store";
-import { useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useState } from "react";
+import { useRouter } from "expo-router";
+import React, { useState } from "react";
 import {
   Alert,
   ScrollView,
@@ -18,31 +18,12 @@ export default function ProfileScreen() {
   // Counts, not unread flags, so the totals are still there after a visit.
   const { items: notifications } = useNotifications();
   const { account, setAccount } = useAccount();
-  const [orderCount, setOrderCount] = useState(0);
 
   // Profile editable state
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(account.name);
   const [phone, setPhone] = useState(account.phone);
   const [saving, setSaving] = useState(false);
-
-  // Re-checked on focus so placing an order and coming back here reflects
-  // it immediately, same as the home screen's default-address refresh.
-  useFocusEffect(
-    useCallback(() => {
-      let cancelled = false;
-      apiFetch("/customer/users/me/orders")
-        .then((orders) => {
-          if (!cancelled) setOrderCount(orders.length);
-        })
-        .catch(() => {
-          // Not signed in yet, or request failed — leave the count at 0.
-        });
-      return () => {
-        cancelled = true;
-      };
-    }, []),
-  );
 
   const handleSave = async () => {
     setSaving(true);
@@ -141,7 +122,7 @@ export default function ProfileScreen() {
             {
               title: "Order History",
               subtitle: "View past orders",
-              badge: orderCount ? String(orderCount) : null,
+              badge: null,
               route: "/order-history",
               icon: "📋",
             },

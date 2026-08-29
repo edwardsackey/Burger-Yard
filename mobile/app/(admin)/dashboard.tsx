@@ -1,3 +1,4 @@
+import { apiFetch } from "@/api";
 import {
   BarChart,
   Card,
@@ -14,8 +15,9 @@ import { Admin } from "@/constants/admin-theme";
 import { imageForName } from "@/constants/menu-catalog";
 import { useResponsive } from "@/hooks/use-responsive";
 import { useRouter } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   Pressable,
   ScrollView,
@@ -27,46 +29,28 @@ import {
 
 const PERIODS = ["Today", "This week", "This month"] as const;
 type Period = (typeof PERIODS)[number];
-
-type Stat = { label: string; value: string; delta: string; icon: IconName };
-
-const STATS: Record<Period, Stat[]> = {
-  Today: [
-    { label: "Total sales", value: "GHS 2,140", delta: "+4.2%", icon: "trending-up" },
-    { label: "Orders today", value: "34", delta: "+2.6%", icon: "shopping-bag" },
-    { label: "Avg order value", value: "GHS 62.90", delta: "+1.1%", icon: "activity" },
-    { label: "New customers", value: "7", delta: "+3%", icon: "user-plus" },
-  ],
-  "This week": [
-    { label: "Total sales", value: "GHS 12,480", delta: "+12.4%", icon: "trending-up" },
-    { label: "Orders today", value: "184", delta: "+8.1%", icon: "shopping-bag" },
-    { label: "Avg order value", value: "GHS 67.80", delta: "+2.3%", icon: "activity" },
-    { label: "New customers", value: "42", delta: "+15%", icon: "user-plus" },
-  ],
-  "This month": [
-    { label: "Total sales", value: "GHS 48,900", delta: "+9.7%", icon: "trending-up" },
-    { label: "Orders today", value: "731", delta: "+6.4%", icon: "shopping-bag" },
-    { label: "Avg order value", value: "GHS 66.90", delta: "+0.8%", icon: "activity" },
-    { label: "New customers", value: "168", delta: "+11%", icon: "user-plus" },
-  ],
+const PERIOD_PARAM: Record<Period, string> = {
+  Today: "today",
+  "This week": "week",
+  "This month": "month",
 };
 
-/** The chart follows the period switcher: different buckets, not just a relabel. */
-const SALES: Record<Period, Bar[]> = {
-  Today: [
-    { label: "9a", value: 120 }, { label: "11a", value: 260 }, { label: "1p", value: 430 },
-    { label: "3p", value: 310 }, { label: "5p", value: 480 }, { label: "7p", value: 390 },
-    { label: "9p", value: 150 },
-  ],
-  "This week": [
-    { label: "Mon", value: 900 }, { label: "Tue", value: 1200 }, { label: "Wed", value: 800 },
-    { label: "Thu", value: 1400 }, { label: "Fri", value: 2000 }, { label: "Sat", value: 2400 },
-    { label: "Sun", value: 1800 },
-  ],
-  "This month": [
-    { label: "W1", value: 8200 }, { label: "W2", value: 9600 },
-    { label: "W3", value: 11200 }, { label: "W4", value: 12480 },
-  ],
+type Stat = { label: string; value: string; delta: string; icon: IconName };
+type RecentOrder = { id: string; name: string; total: string; pay: string; status: string; time: string };
+type BestSeller = { name: string; sold: number };
+
+type DashboardData = {
+  stats: {
+    totalSales: number;
+    ordersCount: number;
+    avgOrderValue: number;
+    newCustomers: number;
+    deltas: Record<"totalSales" | "ordersCount" | "avgOrderValue" | "newCustomers", string>;
+  };
+  salesSeries: Bar[];
+  bestSellers: BestSeller[];
+  peakHours: Bar[];
+  recentOrders: RecentOrder[];
 };
 
 const CHART_SUBTITLE: Record<Period, string> = {
@@ -75,51 +59,62 @@ const CHART_SUBTITLE: Record<Period, string> = {
   "This month": "Revenue by week (GHS)",
 };
 
-const PEAK: Bar[] = [
-  { label: "11a", value: 18 },
-  { label: "1p", value: 30 },
-  { label: "3p", value: 22 },
-  { label: "5p", value: 38 },
-  { label: "7p", value: 60 },
-  { label: "9p", value: 44 },
-  { label: "11p", value: 24 },
-];
-
-const BEST_SELLERS = [
-  { name: "Single Cheese Burger", sold: 128 },
-  { name: "Chicken Burger", sold: 96 },
-  { name: "Double Cheese Burger", sold: 72 },
-  { name: "Fries Regular", sold: 64 },
-  { name: "Coca-Cola", sold: 58 },
-];
-
-const RECENT = [
-  { id: "#1042", name: "Ama Mensah", total: "GHS 195", pay: "MoMo", status: "Preparing", time: "12:09" },
-  { id: "#1041", name: "Kwesi Boateng", total: "GHS 70", pay: "Cash", status: "On the way", time: "12:01" },
-  { id: "#1040", name: "Adwoa Owusu", total: "GHS 120", pay: "MoMo", status: "Delivered", time: "11:48" },
-  { id: "#1039", name: "Yaw Darko", total: "GHS 100", pay: "Card", status: "New", time: "11:42" },
-  { id: "#1038", name: "Akosua Frimpong", total: "GHS 35", pay: "MoMo", status: "Delivered", time: "11:30" },
-];
+function buildStats(data: DashboardData): Stat[] {
+  const { stats } = data;
+  return [
+    { label: "Total sales", value: `GHS ${stats.totalSales.toLocaleString()}`, delta: stats.deltas.totalSales, icon: "trending-up" },
+    { label: "Orders", value: String(stats.ordersCount), delta: stats.deltas.ordersCount, icon: "shopping-bag" },
+    { label: "Avg order value", value: `GHS ${stats.avgOrderValue.toFixed(2)}`, delta: stats.deltas.avgOrderValue, icon: "activity" },
+    { label: "New customers", value: String(stats.newCustomers), delta: stats.deltas.newCustomers, icon: "user-plus" },
+  ];
+}
 
 export default function AdminDashboardScreen() {
   const router = useRouter();
   const { isPhone, isDesktop, statColumns } = useResponsive();
   const [period, setPeriod] = useState<Period>("This week");
   const [query, setQuery] = useState("");
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const stats = STATS[period];
-  const maxSold = BEST_SELLERS[0].sold;
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    apiFetch(`/admin/dashboard?period=${PERIOD_PARAM[period]}`)
+      .then((d) => {
+        if (!cancelled) setData(d);
+      })
+      .catch(() => {
+        // Left as the previous period's data, if any — the screen still works.
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [period]);
+
+  const stats = data ? buildStats(data) : [];
+  const bestSellers = data?.bestSellers ?? [];
+  const maxSold = bestSellers[0]?.sold ?? 1;
+  const recentOrders = data?.recentOrders ?? [];
+  const busiestLabel = useMemo(() => {
+    const peaks = data?.peakHours ?? [];
+    if (!peaks.length || peaks.every((p) => p.value === 0)) return null;
+    return peaks.reduce((a, b) => (b.value > a.value ? b : a)).label;
+  }, [data]);
 
   const recent = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return RECENT;
-    return RECENT.filter(
+    if (!q) return recentOrders;
+    return recentOrders.filter(
       (r) =>
         r.name.toLowerCase().includes(q) ||
         r.id.toLowerCase().includes(q) ||
         r.status.toLowerCase().includes(q),
     );
-  }, [query]);
+  }, [query, recentOrders]);
 
   const buildExport = () => ({
     title: `Recent orders, ${period}`,
@@ -140,7 +135,8 @@ export default function AdminDashboardScreen() {
           <View style={{ flex: 1, minWidth: 220 }}>
             <Text style={styles.headerTitle}>Dashboard</Text>
             <Text style={styles.headerSub}>
-              Monday, 30 June 2026 • Ayeduase New Site
+              {new Date().toLocaleDateString([], { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+              {" • Ayeduase New Site"}
             </Text>
           </View>
 
@@ -183,32 +179,45 @@ export default function AdminDashboardScreen() {
       </FadeIn>
 
       {/* Stat cards */}
-      <View style={styles.statGrid}>
-        {stats.map((s, i) => (
-          <FadeIn
-            key={s.label}
-            delay={60 * i}
-            style={[styles.statCell, { width: `${100 / statColumns}%` as const }]}
-          >
-            <Card style={styles.statCard}>
-              <View style={styles.statHead}>
-                <Text style={styles.statLabel}>{s.label}</Text>
-                <View style={styles.statIcon}>
-                  <Icon name={s.icon} size={14} color={Admin.red} />
-                </View>
-              </View>
-              <Text style={styles.statValue}>{s.value}</Text>
-              <View style={styles.trendRow}>
-                <View style={styles.trendPill}>
-                  <Icon name="arrow-up-right" size={11} color={Admin.green} />
-                  <Text style={styles.trendText}>{s.delta}</Text>
-                </View>
-                <Text style={styles.trendSub}>vs last week</Text>
-              </View>
-            </Card>
-          </FadeIn>
-        ))}
-      </View>
+      {loading && !data ? (
+        <ActivityIndicator style={{ marginVertical: 30 }} color={Admin.red} />
+      ) : (
+        <View style={styles.statGrid}>
+          {stats.map((s, i) => {
+            const isDown = s.delta.trim().startsWith("-");
+            return (
+              <FadeIn
+                key={s.label}
+                delay={60 * i}
+                style={[styles.statCell, { width: `${100 / statColumns}%` as const }]}
+              >
+                <Card style={styles.statCard}>
+                  <View style={styles.statHead}>
+                    <Text style={styles.statLabel}>{s.label}</Text>
+                    <View style={styles.statIcon}>
+                      <Icon name={s.icon} size={14} color={Admin.red} />
+                    </View>
+                  </View>
+                  <Text style={styles.statValue}>{s.value}</Text>
+                  <View style={styles.trendRow}>
+                    <View style={[styles.trendPill, isDown && styles.trendPillDown]}>
+                      <Icon
+                        name={isDown ? "arrow-down-right" : "arrow-up-right"}
+                        size={11}
+                        color={isDown ? Admin.red : Admin.green}
+                      />
+                      <Text style={[styles.trendText, isDown && styles.trendTextDown]}>{s.delta}</Text>
+                    </View>
+                    <Text style={styles.trendSub}>
+                      vs {period === "Today" ? "yesterday" : period === "This week" ? "last week" : "last month"}
+                    </Text>
+                  </View>
+                </Card>
+              </FadeIn>
+            );
+          })}
+        </View>
+      )}
 
       {/* Sales + best sellers */}
       <View style={[styles.split, !isDesktop && styles.splitStacked]}>
@@ -217,10 +226,10 @@ export default function AdminDashboardScreen() {
             <SectionTitle
               title="Sales overview"
               subtitle={CHART_SUBTITLE[period]}
-              right={<Text style={styles.bigFigure}>{stats[0].value}</Text>}
+              right={<Text style={styles.bigFigure}>{stats[0]?.value ?? "—"}</Text>}
             />
             <BarChart
-              data={SALES[period]}
+              data={data?.salesSeries ?? []}
               height={isPhone ? 190 : 250}
               formatCaption={(v) => `GHS ${v}`}
             />
@@ -230,7 +239,10 @@ export default function AdminDashboardScreen() {
         <FadeIn delay={180} style={isDesktop ? styles.splitSide : undefined}>
           <Card>
             <SectionTitle title="Best sellers" />
-            {BEST_SELLERS.map((b, i) => (
+            {bestSellers.length === 0 && !loading ? (
+              <Text style={styles.empty}>No orders in this period yet.</Text>
+            ) : (
+              bestSellers.map((b, i) => (
               <View key={b.name} style={styles.sellerRow}>
                 <View style={styles.sellerThumbWrap}>
                   <Image
@@ -252,7 +264,8 @@ export default function AdminDashboardScreen() {
                   <ProgressBar pct={(b.sold / maxSold) * 100} />
                 </View>
               </View>
-            ))}
+              ))
+            )}
           </Card>
         </FadeIn>
       </View>
@@ -282,7 +295,9 @@ export default function AdminDashboardScreen() {
             )}
 
             {recent.length === 0 ? (
-              <Text style={styles.empty}>No orders match “{query}”.</Text>
+              <Text style={styles.empty}>
+                {query ? `No orders match “${query}”.` : "No recent orders yet."}
+              </Text>
             ) : (
               recent.map((o) =>
                 isPhone ? (
@@ -330,11 +345,13 @@ export default function AdminDashboardScreen() {
         <FadeIn delay={260} style={isDesktop ? styles.splitSide : undefined}>
           <Card>
             <SectionTitle title="Peak hours" />
-            <BarChart data={PEAK} height={isPhone ? 170 : 210} formatCaption={() => ""} />
-            <View style={styles.note}>
-              <View style={styles.noteDot} />
-              <Text style={styles.noteText}>Busiest 7 to 8 PM, staff up</Text>
-            </View>
+            <BarChart data={data?.peakHours ?? []} height={isPhone ? 170 : 210} formatCaption={() => ""} />
+            {busiestLabel && (
+              <View style={styles.note}>
+                <View style={styles.noteDot} />
+                <Text style={styles.noteText}>Busiest around {busiestLabel}, staff up</Text>
+              </View>
+            )}
           </Card>
         </FadeIn>
       </View>
@@ -407,6 +424,8 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   trendText: { fontSize: 11, fontWeight: "700", color: Admin.green },
+  trendPillDown: { backgroundColor: Admin.redSoft },
+  trendTextDown: { color: Admin.red },
   trendSub: { fontSize: 11, color: Admin.textFaint },
 
   split: { flexDirection: "row", gap: 20 },

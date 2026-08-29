@@ -11,6 +11,7 @@ import {
   regenerateStaffPin,
 } from '../controllers/adminAuth';
 import { listRiders, createRider, updateRider, deleteRider } from '../controllers/riders';
+import { getDashboard } from '../controllers/dashboard';
 import { authenticate, requireOwner, requireStaffOrOwner } from '../middleware/auth';
 
 const router = Router();
@@ -40,5 +41,8 @@ router.post('/staff/:id/regenerate-pin', authenticate, requireOwner, regenerateS
 // Owner-only — rider roster management.
 router.put('/riders/:id', authenticate, requireOwner, updateRider);
 router.delete('/riders/:id', authenticate, requireOwner, deleteRider);
+
+// Owner-only — matches OWNER_ONLY in mobile/context/AdminSession.tsx.
+router.get('/dashboard', authenticate, requireOwner, getDashboard);
 
 export default router;

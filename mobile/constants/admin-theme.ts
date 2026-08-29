@@ -33,8 +33,11 @@ export const Admin = {
 export const StatusTone: Record<string, { fg: string; bg: string }> = {
   New: { fg: Admin.red, bg: Admin.redSoft },
   Preparing: { fg: Admin.amber, bg: Admin.amberSoft },
+  Ready: { fg: Admin.amber, bg: Admin.amberSoft },
   "On the way": { fg: Admin.blue, bg: Admin.blueSoft },
+  "Out for delivery": { fg: Admin.blue, bg: Admin.blueSoft },
   Delivered: { fg: Admin.green, bg: Admin.greenSoft },
+  Completed: { fg: Admin.green, bg: Admin.greenSoft },
   Cancelled: { fg: Admin.textMuted, bg: "#F3F4F6" },
   Paid: { fg: Admin.green, bg: Admin.greenSoft },
   Pending: { fg: Admin.amber, bg: Admin.amberSoft },
