@@ -95,6 +95,10 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response): Promis
         riderName: riderName ?? undefined,
         riderPhone: riderPhone ?? undefined,
         riderVehicle: riderVehicle ?? undefined,
+        // Stamped the moment each stage is first reached, so Reports can
+        // compute a real avg prep time (readyAt - acceptedAt).
+        acceptedAt: status === 'PREPARING' ? new Date() : undefined,
+        readyAt: status === 'READY' ? new Date() : undefined,
       },
       omit: { deliveryCode: true },
       include: { user: { select: { pushToken: true } } },

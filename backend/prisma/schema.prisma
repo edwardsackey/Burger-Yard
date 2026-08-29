@@ -83,6 +83,10 @@ model MenuItem {
   description String?
   price       Float
   image_url   String?
+  // Nullable — not every existing item has one yet, and the admin menu
+  // management UI to set it hasn't been built. Reports shows "Uncategorized"
+  // when unset.
+  category    String?
   orderItems  OrderItem[]
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
@@ -133,6 +137,12 @@ model Order {
   // this on any admin-facing query — it's how the customer proves receipt
   // to the rider, so the admin console must not be able to see or leak it.
   deliveryCode  String?
+  // Stamped by updateOrderStatus the moment status first moves to
+  // PREPARING/READY, so Reports can compute a real "avg prep time"
+  // (readyAt - acceptedAt) instead of a hardcoded number. Null for orders
+  // that never reached that stage, or placed before this field existed.
+  acceptedAt    DateTime?
+  readyAt       DateTime?
   orderItems    OrderItem[]
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt

@@ -92,9 +92,15 @@ export function StatRow({ stats }: { stats: StatSpec[] }) {
             <Text style={styles.statValue}>{s.value}</Text>
             {s.delta ? (
               <View style={styles.trendRow}>
-                <View style={styles.trendPill}>
-                  <Icon name="arrow-up-right" size={11} color={Admin.green} />
-                  <Text style={styles.trendText}>{s.delta}</Text>
+                <View style={[styles.trendPill, s.delta.trim().startsWith("-") && styles.trendPillDown]}>
+                  <Icon
+                    name={s.delta.trim().startsWith("-") ? "arrow-down-right" : "arrow-up-right"}
+                    size={11}
+                    color={s.delta.trim().startsWith("-") ? Admin.red : Admin.green}
+                  />
+                  <Text style={[styles.trendText, s.delta.trim().startsWith("-") && styles.trendTextDown]}>
+                    {s.delta}
+                  </Text>
                 </View>
                 {s.hint ? <Text style={styles.trendSub}>{s.hint}</Text> : null}
               </View>
@@ -193,6 +199,8 @@ export const styles = StyleSheet.create({
     borderRadius: 6,
   },
   trendText: { fontSize: 11, fontWeight: "700", color: Admin.green },
+  trendPillDown: { backgroundColor: Admin.redSoft },
+  trendTextDown: { color: Admin.red },
   trendSub: { fontSize: 11, color: Admin.textFaint },
   hint: { fontSize: 11.5, color: Admin.textFaint, marginTop: 10 },
 

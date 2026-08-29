@@ -12,6 +12,7 @@ import {
 } from '../controllers/adminAuth';
 import { listRiders, createRider, updateRider, deleteRider } from '../controllers/riders';
 import { getDashboard } from '../controllers/dashboard';
+import { getReports } from '../controllers/reports';
 import { authenticate, requireOwner, requireStaffOrOwner } from '../middleware/auth';
 
 const router = Router();
@@ -44,5 +45,6 @@ router.delete('/riders/:id', authenticate, requireOwner, deleteRider);
 
 // Owner-only — matches OWNER_ONLY in mobile/context/AdminSession.tsx.
 router.get('/dashboard', authenticate, requireOwner, getDashboard);
+router.get('/reports', authenticate, requireOwner, getReports);
 
 export default router;

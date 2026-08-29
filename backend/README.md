@@ -122,13 +122,16 @@ unused multi-tenant complexity:
 - **`Address`** — a user's saved delivery addresses (`label`, `details`,
   `city`, `isDefault`). Exactly one address per user is ever marked default
   (enforced in the controller, not the schema).
-- **`MenuItem`** — the product catalog. Currently just
-  `name`/`description`/`price`/`image_url` — no category/availability
-  fields yet (see Roadmap).
+- **`MenuItem`** — the product catalog. `name`/`description`/`price`/
+  `image_url`, plus a nullable `category` (used by Reports' top-items table;
+  admin editing of it hasn't been built — see Roadmap). No availability
+  toggle yet.
 - **`Order`** — one customer order: payment method/network, delivery fee,
   landmark, linked address, and status (`NEW → PREPARING → READY → OUT_FOR_DELIVERY → COMPLETED`,
   or `CANCELLED`). Also carries `riderName`/`riderPhone`/`riderVehicle` (set
-  by the admin when a rider is assigned) and `deliveryCode` — a 4-digit code
+  by the admin when a rider is assigned), `acceptedAt`/`readyAt` (stamped by
+  `updateOrderStatus` the moment those stages are first reached, so Reports
+  can compute a real avg prep time), and `deliveryCode` — a 4-digit code
   generated at checkout that's the customer's own proof-of-receipt.
   **`deliveryCode` must never be exposed on any admin-facing query** — it's
   explicitly `omit`ted in `getAllOrders` and `updateOrderStatus`, and
@@ -174,21 +177,21 @@ unused multi-tenant complexity:
 | `GET/POST /api/admin/riders` | Staff-or-owner. Staff can view the roster and add a rider on the fly while assigning a delivery |
 | `PUT/DELETE /api/admin/riders/:id` | Owner-only. Edit/deactivate/remove a rider from the roster |
 | `GET /api/admin/dashboard?period=today\|week\|month` | Owner-only. Real sales/orders/avg-order-value/new-customer stats (with a delta vs the equivalent previous period), a revenue series bucketed to fit the period, best sellers, an hour-of-day order histogram, and the 6 most recent orders — all computed live from `Order`/`OrderItem`/`User`, nothing precomputed or cached |
+| `GET /api/admin/reports?days=7\|30\|90` | Owner-only. Gross revenue and orders-completed with deltas vs the equivalent prior window, a real avg prep time (`readyAt - acceptedAt`, `null` until an order has both), a revenue trend (daily/weekly/monthly buckets depending on window size), a peak-hours histogram, and top-selling items by quantity with category + revenue |
 
 ## Roadmap — what's still ahead
 
-Admin auth (owner login + staff PIN login), the Customers, Orders, and
-Dashboard pages are now real — see Changelog. What's still mock or unbuilt:
+Admin auth (owner login + staff PIN login), the Customers, Orders,
+Dashboard, and Reports pages are now real — see Changelog. What's still
+mock or unbuilt:
 
-- Menu management (category, availability, image upload) — `MenuItem` needs
-  these fields added when this work starts
+- Menu management (availability toggle, image upload, and an admin UI to
+  set `category` — the field exists and is populated for the seeded menu,
+  but nothing lets the admin edit it yet)
 - Admin Payments page, backed by real transaction data. `Paid`/`Pending` are
   straightforward from `Order.paid`, but the mock's `Failed`/`Refunded`
   states have no real backing yet — nothing currently records a failed
   Paystack charge or a refund, so that needs its own small feature first
-- Admin Reports page (deeper analytics beyond what Dashboard now covers —
-  e.g. avg prep time, which needs `acceptedAt`/`readyAt` timestamps that
-  don't exist on `Order` yet)
 - An EAS project is now configured (`extra.eas.projectId` in `app.json`,
   under the `menialshot` Expo account), so `getExpoPushTokenAsync()` can
   actually mint real tokens in Expo Go — no custom dev build required
@@ -211,6 +214,18 @@ Log major backend changes here going forward — schema changes, new
 integrations, new endpoints, breaking changes to existing ones.
 
 ### 2026-08-29
+- **Wired the admin Reports page to real data** (`GET /admin/reports`,
+  owner-only), replacing every hardcoded `TOP_ITEMS`/`REVENUE`/`PEAK` array.
+  Added `Order.acceptedAt`/`readyAt` (stamped by `updateOrderStatus` when
+  those stages are first reached) so "avg prep time" is a real computed
+  number instead of a fixed "14 min" — shows "Not tracked yet" for orders
+  placed before this field existed. Also added `MenuItem.category`
+  (nullable) and backfilled it for the 9 seeded items, so the top-items
+  table's category badges are real instead of guessed.
+- Fixed the same "always green up-arrow" bug in the shared `StatRow`
+  component (used by Reports and Payments) that Dashboard's local stat
+  cards had — a negative delta now shows a red down-arrow instead of
+  claiming growth.
 - **Wired the admin Dashboard to real data** (`GET /admin/dashboard`,
   owner-only), replacing every hardcoded `STATS`/`SALES`/`BEST_SELLERS`/
   `PEAK`/`RECENT` array. Stats now include a real delta against the
