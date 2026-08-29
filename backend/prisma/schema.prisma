@@ -62,6 +62,20 @@ model Staff {
   invitedAt DateTime @default(now())
 }
 
+// A saved roster the admin console picks from when assigning a delivery —
+// deliberately just a contact record, not linked to Order by a foreign key.
+// The name/phone/vehicle picked onto an Order are copied at assignment time
+// (see updateOrderStatus), so editing or removing a rider here never
+// changes what already shipped on a past order.
+model Rider {
+  id        Int      @id @default(autoincrement())
+  name      String
+  phone     String
+  vehicle   String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
 // Single-shop app — no restaurant-selection concept anywhere in the frontend.
 model MenuItem {
   id          Int         @id @default(autoincrement())

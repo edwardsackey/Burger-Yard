@@ -4,8 +4,8 @@ import prisma from '../prisma';
 import { sendPushNotification } from '../services/push';
 
 const STATUS_MESSAGE: Record<string, string> = {
-  NEW: 'Your order has been accepted by the kitchen.',
-  PREPARING: 'Your order is being prepared.',
+  NEW: 'Your order has been placed.',
+  PREPARING: 'Your order has been accepted and is being prepared.',
   READY: 'Your order is packed and waiting for a rider.',
   OUT_FOR_DELIVERY: 'Your order is on the way!',
   COMPLETED: 'Your order has been delivered. Enjoy!',

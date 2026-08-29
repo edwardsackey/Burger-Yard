@@ -32,6 +32,16 @@ export type StaffMember = {
 /** Name-only, fetched before anyone is signed in — for the staff picker. */
 export type ActiveStaffOption = { id: number; name: string };
 
+/** A saved delivery rider the admin console can pick from when assigning an order. */
+export type Rider = {
+  id: number;
+  name: string;
+  phone: string;
+  vehicle: string | null;
+  active: boolean;
+  createdAt: string;
+};
+
 /**
  * Screens only the owner may open. Everything not listed is open to staff.
  *
@@ -77,6 +87,11 @@ type SessionValue = {
   updateStaff: (id: number, patch: Partial<Pick<StaffMember, "name" | "phone" | "active">>) => Promise<void>;
   removeStaff: (id: number) => Promise<void>;
   regeneratePin: (id: number) => Promise<string | null>;
+  riders: Rider[];
+  loadRiders: () => Promise<void>;
+  addRider: (name: string, phone: string, vehicle: string) => Promise<Rider | null>;
+  updateRider: (id: number, patch: Partial<Pick<Rider, "name" | "phone" | "vehicle" | "active">>) => Promise<void>;
+  removeRider: (id: number) => Promise<void>;
 };
 
 const SessionContext = createContext<SessionValue | null>(null);
@@ -87,6 +102,7 @@ export function AdminSessionProvider({ children }: { children: React.ReactNode }
   const [user, setUser] = useState<AdminUser | null>(null);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [activeStaff, setActiveStaff] = useState<ActiveStaffOption[]>([]);
+  const [riders, setRiders] = useState<Rider[]>([]);
 
   // Public — the staff picker needs names before anyone is authenticated.
   useEffect(() => {
@@ -199,6 +215,52 @@ export function AdminSessionProvider({ children }: { children: React.ReactNode }
     }
   }, []);
 
+  const loadRiders = useCallback(async () => {
+    try {
+      const data = await apiFetch("/admin/riders");
+      setRiders(data);
+    } catch {
+      // Not signed in, or request failed — leave the list as-is.
+    }
+  }, []);
+
+  const addRider = useCallback(async (name: string, phone: string, vehicle: string) => {
+    try {
+      const data = await apiFetch("/admin/riders", {
+        method: "POST",
+        body: JSON.stringify({ name: name.trim(), phone: phone.trim(), vehicle: vehicle.trim() || undefined }),
+      });
+      setRiders((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+      return data as Rider;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const updateRider = useCallback(
+    async (id: number, patch: Partial<Pick<Rider, "name" | "phone" | "vehicle" | "active">>) => {
+      try {
+        const data = await apiFetch(`/admin/riders/${id}`, {
+          method: "PUT",
+          body: JSON.stringify(patch),
+        });
+        setRiders((prev) => prev.map((r) => (r.id === id ? data : r)));
+      } catch {
+        // Left as-is — the screen's own error handling covers this.
+      }
+    },
+    [],
+  );
+
+  const removeRider = useCallback(async (id: number) => {
+    try {
+      await apiFetch(`/admin/riders/${id}`, { method: "DELETE" });
+      setRiders((prev) => prev.filter((r) => r.id !== id));
+    } catch {
+      // Left as-is — the screen's own error handling covers this.
+    }
+  }, []);
+
   const value = useMemo<SessionValue>(
     () => ({
       user,
@@ -213,6 +275,11 @@ export function AdminSessionProvider({ children }: { children: React.ReactNode }
       updateStaff,
       removeStaff,
       regeneratePin,
+      riders,
+      loadRiders,
+      addRider,
+      updateRider,
+      removeRider,
     }),
     [
       user,
@@ -226,6 +293,11 @@ export function AdminSessionProvider({ children }: { children: React.ReactNode }
       updateStaff,
       removeStaff,
       regeneratePin,
+      riders,
+      loadRiders,
+      addRider,
+      updateRider,
+      removeRider,
     ],
   );
 

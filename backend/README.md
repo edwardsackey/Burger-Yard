@@ -36,6 +36,45 @@ formal migration history — it was never started with `prisma migrate`, so
 `db push` is the established way to sync schema changes here). Seed the menu
 catalog with `npx tsx prisma/seed.ts`.
 
+## Running the mobile app across networks (cloudflared)
+
+Testing on a phone that's **not on the same WiFi** as the dev machine (e.g. a
+different network entirely) needs two things tunneled: the backend API and
+Metro (the JS bundler). Expo's own built-in `--tunnel` flag (ngrok-based) has
+repeatedly proven flaky ("failed to start tunnel", "remote gone away") and
+also anonymous ngrok tunnels are subject to rate limits/outages — so instead
+both are tunneled with `cloudflared`, which needs no account and has been
+reliable. **This is now the standing way to run cross-network dev testing.**
+Five terminals, in this order:
+
+1. **Backend** — `cd backend && npm run dev`
+2. **Public tunnel for the backend** — `npx cloudflared tunnel --url http://localhost:3000`.
+   Take the printed `https://....trycloudflare.com` URL and set it as
+   `EXPO_PUBLIC_API_URL=<that URL>/api` in `mobile/.env` (the URL is random
+   each run, so this has to be updated every time this tunnel restarts).
+3. **Public tunnel for Metro** — `npx cloudflared tunnel --url http://localhost:8081`.
+4. **Expo (native/Expo Go)** — in `mobile/`, set the Metro tunnel URL as a
+   proxy override, then start Expo *without* `--tunnel`:
+   ```
+   $env:EXPO_PACKAGER_PROXY_URL="<the terminal-3 URL>"
+   npx expo start
+   ```
+   `EXPO_PACKAGER_PROXY_URL` is an undocumented-but-functional Expo CLI env
+   var (`UrlCreator.js`) that makes the dev server announce a URL you supply
+   instead of trying to create its own tunnel — this is what replaces
+   `--tunnel`/ngrok entirely. Expo Go connects to whatever QR code/manual URL
+   this prints, same as it would with a real Expo tunnel.
+5. **Expo (web)** — `npx expo start --web --port 8082` (unaffected by any of
+   this, since the browser and backend are on the same machine).
+
+Both `cloudflared` terminals (2 and 3) must stay open for the whole session —
+closing either breaks the backend or the Metro connection respectively.
+
+If instead the phone **is on the same WiFi** as the dev machine, skip all of
+this: just run the backend and `npx expo start` (no `--tunnel`, no proxy
+override) — `mobile/api.ts` already derives the backend's LAN IP
+automatically from Metro's own LAN address in that case.
+
 ## Why the backend is being restructured
 
 The backend was originally scaffolded around a **multi-restaurant** model
@@ -103,6 +142,12 @@ unused multi-tenant complexity:
 - **`OrderItem`** — line items, with a `price_at_time_of_order` snapshot
   and an `extras` JSON snapshot of selected add-ons (so a later menu price
   change never rewrites history).
+- **`Rider`** — a saved delivery-rider roster (`name`, `phone`, `vehicle`,
+  `active`) the admin console picks from when assigning a delivery.
+  Deliberately **not** linked to `Order` by a foreign key — the name/phone/
+  vehicle picked are copied onto the `Order`'s own columns at assignment
+  time, so editing or removing a rider from the roster later never changes
+  what already shipped on a past order.
 
 ## API surface
 
@@ -126,6 +171,8 @@ unused multi-tenant complexity:
 | `GET /api/admin/auth/active-staff` | Public — name+id only, for the staff sign-in picker |
 | `POST /api/admin/auth/staff-login` | Staff PIN login (`staffId` + `pin`) |
 | `GET/POST/PUT/DELETE /api/admin/staff`, `POST /:id/regenerate-pin` | Owner-only staff management. A PIN is only ever returned in plaintext once, from `createStaff`/`regenerateStaffPin` — never retrievable afterward |
+| `GET/POST /api/admin/riders` | Staff-or-owner. Staff can view the roster and add a rider on the fly while assigning a delivery |
+| `PUT/DELETE /api/admin/riders/:id` | Owner-only. Edit/deactivate/remove a rider from the roster |
 
 ## Roadmap — what's still ahead
 
@@ -136,16 +183,16 @@ Orders page are now real — see Changelog. What's still mock or unbuilt:
   these fields added when this work starts
 - Admin Payments and Reports pages, backed by real aggregation queries
   instead of the current hardcoded arrays
-- **No EAS project is configured yet**, so `getExpoPushTokenAsync()` can
-  fail silently (caught and ignored — push registration is best-effort and
-  must never block sign-in). Push notifications won't actually reach a
-  device until an EAS project id is set in `app.json`
+- An EAS project is now configured (`extra.eas.projectId` in `app.json`,
+  under the `menialshot` Expo account), so `getExpoPushTokenAsync()` can
+  actually mint real tokens in Expo Go — no custom dev build required
 - Per the current plan, the admin console ships as its **own web-only
   build** at a separate URL — never bundled into the customer app that goes
   to the app stores
-- **No rider-facing interface exists yet.** Rider name/phone/vehicle are set
-  manually via `updateOrderStatus` for now — there's no way for a rider to
-  interact with the system at all. Two features are blocked on this:
+- **No rider-facing interface exists yet.** The admin picks a rider from the
+  saved roster (or adds a new one) and it's written onto the order via
+  `updateOrderStatus`, but there's no way for a rider to interact with the
+  system at all. Two features are blocked on this:
   real-time rider location on the tracking map, and completing a delivery
   by having the rider enter the customer's delivery code (currently the
   code is generated and shown to the customer, but nothing ever verifies
@@ -156,6 +203,35 @@ Orders page are now real — see Changelog. What's still mock or unbuilt:
 
 Log major backend changes here going forward — schema changes, new
 integrations, new endpoints, breaking changes to existing ones.
+
+### 2026-08-29
+- **Fixed an order-status auto-advance bug.** The admin Orders screen's
+  "busy" guard was a `useRef`, which never triggers a re-render — so the
+  action button stayed fully enabled and relabeled itself (e.g. "Accept
+  order" → "Mark ready") the instant a status change landed, right under
+  the admin's cursor/finger. A slightly-too-fast double-tap could land on
+  the *new* button and silently skip a step. Fixed with a render-visible
+  `pendingIds` state that disables the button during the request plus a
+  700ms cooldown after.
+- Fixed the customer-facing label for the `NEW` status, which read "Order
+  accepted" even though nothing had actually been accepted by the kitchen
+  yet — it now reads "Order placed", and only shows "accepted" language
+  once the admin moves it to `PREPARING`.
+- **Added a `Rider` model and roster.** Previously the admin typed rider
+  name/phone/vehicle into free-text fields on every order — now there's a
+  saved roster (`GET/POST /admin/riders`, staff-or-owner; `PUT/DELETE
+  /admin/riders/:id`, owner-only) that the Orders screen picks from via a
+  chip selector, with an inline "+ New rider" flow that saves to the
+  roster for reuse. A full management view (add/deactivate/remove) lives
+  in admin Settings, owner-only. `Rider` is intentionally not a foreign key
+  on `Order` — see the schema section above for why.
+- Configured a real EAS project (`npx eas init`, account `menialshot`) so
+  Expo push tokens can actually be minted — previously silently failed
+  with no EAS project configured (see Roadmap history).
+- Documented (below, "Running the mobile app across networks") the move
+  from Expo's built-in `--tunnel` (ngrok-based, repeatedly flaky) to two
+  `cloudflared` tunnels + `EXPO_PACKAGER_PROXY_URL` for cross-network
+  device testing.
 
 ### 2026-08-26
 - Added this README.

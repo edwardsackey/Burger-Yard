@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const STAGES = [
-  "Order accepted",
+  "Order placed",
   "Preparing your food",
   "Ready for pickup",
   "On the way",
@@ -29,7 +29,7 @@ const STAGE_INDEX: Record<string, number> = {
 };
 
 const STATUS_TITLE: Record<string, string> = {
-  NEW: "Order accepted",
+  NEW: "Order placed",
   PREPARING: "Preparing your food",
   READY: "Ready for pickup",
   OUT_FOR_DELIVERY: "On the way",

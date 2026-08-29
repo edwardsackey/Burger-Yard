@@ -12,7 +12,7 @@ import {
 } from "@/components/admin/ui";
 import { Admin } from "@/constants/admin-theme";
 import { BRAND } from "@/constants/menu-catalog";
-import { useAdminSession, type StaffMember } from "@/context/AdminSession";
+import { useAdminSession, type Rider, type StaffMember } from "@/context/AdminSession";
 import { useResponsive } from "@/hooks/use-responsive";
 import React, { useEffect, useState } from "react";
 import {
@@ -28,14 +28,29 @@ import {
 export default function AdminSettingsScreen() {
   const { isPhone } = useResponsive();
   const { confirm, notify } = useDialog();
-  const { user, staff, loadStaff, addStaff, updateStaff, removeStaff, regeneratePin } =
-    useAdminSession();
+  const {
+    user,
+    staff,
+    loadStaff,
+    addStaff,
+    updateStaff,
+    removeStaff,
+    regeneratePin,
+    riders,
+    loadRiders,
+    addRider,
+    updateRider,
+    removeRider,
+  } = useAdminSession();
 
   const isOwner = user?.role === "owner";
 
   useEffect(() => {
-    if (isOwner) loadStaff();
-  }, [isOwner, loadStaff]);
+    if (isOwner) {
+      loadStaff();
+      loadRiders();
+    }
+  }, [isOwner, loadStaff, loadRiders]);
 
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
@@ -117,6 +132,43 @@ export default function AdminSettingsScreen() {
   const newCode = async (member: StaffMember) => {
     const pin = await regeneratePin(member.id);
     if (pin) setInvite({ member, pin });
+  };
+
+  const [addingRider, setAddingRider] = useState(false);
+  const [riderName, setRiderName] = useState("");
+  const [riderPhone, setRiderPhone] = useState("");
+  const [riderVehicle, setRiderVehicle] = useState("");
+
+  const handleAddRider = async () => {
+    if (!riderName.trim()) {
+      notify({ title: "Name required", message: "Enter the rider's name." });
+      return;
+    }
+    if (riderPhone.replace(/\D/g, "").length < 9) {
+      notify({ title: "Check the phone number", message: "Enter a valid rider phone number." });
+      return;
+    }
+    const created = await addRider(riderName, riderPhone, riderVehicle);
+    if (!created) {
+      notify({ title: "Could not add", message: "Please try again." });
+      return;
+    }
+    setRiderName("");
+    setRiderPhone("");
+    setRiderVehicle("");
+    setAddingRider(false);
+  };
+
+  const toggleRiderActive = (rider: Rider) => updateRider(rider.id, { active: !rider.active });
+
+  const confirmRemoveRider = async (rider: Rider) => {
+    const ok = await confirm({
+      title: "Remove rider",
+      message: `Remove ${rider.name} from the roster? They won't be selectable for future deliveries.`,
+      confirmLabel: "Remove",
+      destructive: true,
+    });
+    if (ok) await removeRider(rider.id);
   };
 
   return (
@@ -227,6 +279,68 @@ export default function AdminSettingsScreen() {
           </FadeIn>
         )}
 
+        {/* Riders - owner only */}
+        {isOwner && (
+          <FadeIn delay={135}>
+            <Card>
+              <SectionTitle
+                title="Riders"
+                subtitle={`${riders.filter((r) => r.active).length} of ${riders.length} available for assignment`}
+                right={<Button label="Add rider" icon="user-plus" size="sm" onPress={() => setAddingRider(true)} />}
+              />
+
+              {riders.length === 0 ? (
+                <View style={styles.emptyBox}>
+                  <Icon name="truck" size={22} color={Admin.textFaint} />
+                  <Text style={styles.emptyText}>
+                    No riders saved yet. Add one so it can be picked when assigning a delivery.
+                  </Text>
+                </View>
+              ) : (
+                riders.map((rider) => (
+                  <View key={rider.id} style={styles.memberRow}>
+                    <View style={styles.memberAvatar}>
+                      <Text style={styles.memberAvatarText}>
+                        {rider.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                      </Text>
+                    </View>
+
+                    <View style={{ flex: 1, minWidth: 130 }}>
+                      <View style={styles.memberNameRow}>
+                        <Text style={styles.memberName}>{rider.name}</Text>
+                        {!rider.active && (
+                          <View style={styles.blockedTag}>
+                            <Icon name="slash" size={9} color={Admin.red} />
+                            <Text style={styles.blockedTagText}>Hidden</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={styles.memberMeta}>
+                        {rider.phone}
+                        {rider.vehicle ? ` · ${rider.vehicle}` : ""}
+                      </Text>
+                    </View>
+
+                    <View style={styles.memberActions}>
+                      <Toggle
+                        value={rider.active}
+                        onChange={() => toggleRiderActive(rider)}
+                        label={`${rider.name} available for assignment`}
+                      />
+                      <IconButton
+                        name="trash-2"
+                        tone="danger"
+                        label={`Remove ${rider.name}`}
+                        onPress={() => confirmRemoveRider(rider)}
+                      />
+                    </View>
+                  </View>
+                ))
+              )}
+            </Card>
+          </FadeIn>
+        )}
+
         {/* Business */}
         <FadeIn delay={160}>
           <Card>
@@ -305,6 +419,50 @@ export default function AdminSettingsScreen() {
           The code is generated for them and checked against their name only, so
           one worker&apos;s code cannot sign in as another.
         </Text>
+      </ModalSheet>
+
+      {/* Add rider */}
+      <ModalSheet
+        visible={addingRider}
+        title="Add a rider"
+        subtitle="Saved to the roster so it can be picked on any order."
+        onClose={() => setAddingRider(false)}
+        footer={
+          <>
+            <Button label="Cancel" variant="secondary" onPress={() => setAddingRider(false)} />
+            <Button label="Add rider" onPress={handleAddRider} />
+          </>
+        }
+      >
+        <Field label="Full name">
+          <TextInput
+            style={fieldStyles.input}
+            value={riderName}
+            onChangeText={setRiderName}
+            placeholder="e.g. Kojo Mensah"
+            placeholderTextColor={Admin.textFaint}
+            autoCapitalize="words"
+          />
+        </Field>
+        <Field label="Phone number">
+          <TextInput
+            style={fieldStyles.input}
+            value={riderPhone}
+            onChangeText={setRiderPhone}
+            placeholder="0244 112 233"
+            placeholderTextColor={Admin.textFaint}
+            keyboardType="phone-pad"
+          />
+        </Field>
+        <Field label="Vehicle (optional)">
+          <TextInput
+            style={fieldStyles.input}
+            value={riderVehicle}
+            onChangeText={setRiderVehicle}
+            placeholder="e.g. Red Honda bike"
+            placeholderTextColor={Admin.textFaint}
+          />
+        </Field>
       </ModalSheet>
 
       {/* Invite, shown after onboarding or when resending */}

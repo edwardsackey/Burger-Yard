@@ -8,8 +8,10 @@ import {
   type IconName,
 } from "@/components/admin/ui";
 import { useDialog } from "@/components/admin/dialog";
+import { Field, ModalSheet, fieldStyles } from "@/components/admin/modal-sheet";
 import { Admin } from "@/constants/admin-theme";
 import { imageForName } from "@/constants/menu-catalog";
+import { useAdminSession } from "@/context/AdminSession";
 import { useResponsive } from "@/hooks/use-responsive";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -62,6 +64,9 @@ type Order = {
   subtotal: string;
   delivery: string;
   paid: boolean;
+  riderName: string;
+  riderPhone: string;
+  riderVehicle: string;
 };
 
 /** "just now" / "N min ago" / "N hr ago" / "N days ago". */
@@ -103,6 +108,9 @@ function mapOrder(o: any): Order {
     subtotal: `GHS ${o.total_amount - o.deliveryFee}`,
     delivery: `GHS ${o.deliveryFee}`,
     paid: o.paid,
+    riderName: o.riderName ?? "",
+    riderPhone: o.riderPhone ?? "",
+    riderVehicle: o.riderVehicle ?? "",
   };
 }
 
@@ -123,6 +131,7 @@ const POLL_MS = 8000;
 export default function AdminOrdersScreen() {
   const { isPhone, isDesktop } = useResponsive();
   const { confirm } = useDialog();
+  const { riders, loadRiders, addRider } = useAdminSession();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState("All");
@@ -130,6 +139,18 @@ export default function AdminOrdersScreen() {
   const [query, setQuery] = useState("");
   const [openOnPhone, setOpenOnPhone] = useState(false);
   const busyIds = useRef(new Set<string>());
+  // Mirrors busyIds into render-visible state so the action button actually
+  // disables — without this, a fast double-tap can land on the *next*
+  // stage's button the instant it swaps into the same screen position,
+  // silently skipping a step the admin never meant to take. The cooldown
+  // after completion (see pushStatus) covers the same risk for a double-tap
+  // that lands just after the request finishes.
+  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    loadRiders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -174,9 +195,72 @@ export default function AdminOrdersScreen() {
 
   const current = orders.find((o) => o.id === selectedOrderId) ?? filtered[0] ?? orders[0];
 
+  const [riderDraft, setRiderDraft] = useState({ name: "", phone: "", vehicle: "" });
+  const [savingRider, setSavingRider] = useState(false);
+
+  // Re-seed the draft only when the *selected order* changes, not on every
+  // poll refresh — otherwise an admin mid-typing gets overwritten every 8s.
+  useEffect(() => {
+    if (current) {
+      setRiderDraft({
+        name: current.riderName,
+        phone: current.riderPhone,
+        vehicle: current.riderVehicle,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current?.id]);
+
+  const saveRiderDetails = async () => {
+    if (!current) return;
+    setSavingRider(true);
+    try {
+      const numericId = current.id.replace("#", "");
+      await apiFetch(`/admin/orders/${numericId}/status`, {
+        method: "PUT",
+        body: JSON.stringify({
+          riderName: riderDraft.name,
+          riderPhone: riderDraft.phone,
+          riderVehicle: riderDraft.vehicle,
+        }),
+      });
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === current.id
+            ? { ...o, riderName: riderDraft.name, riderPhone: riderDraft.phone, riderVehicle: riderDraft.vehicle }
+            : o,
+        ),
+      );
+    } catch {
+      // Left as-is — the admin can retry from the form.
+    } finally {
+      setSavingRider(false);
+    }
+  };
+
+  const [addingRider, setAddingRider] = useState(false);
+  const [newRider, setNewRider] = useState({ name: "", phone: "", vehicle: "" });
+  const [creatingRider, setCreatingRider] = useState(false);
+
+  const handleAddRider = async () => {
+    if (!newRider.name.trim() || !newRider.phone.trim()) return;
+    setCreatingRider(true);
+    try {
+      const created = await addRider(newRider.name, newRider.phone, newRider.vehicle);
+      if (created) {
+        setRiderDraft({ name: created.name, phone: created.phone, vehicle: created.vehicle ?? "" });
+        setNewRider({ name: "", phone: "", vehicle: "" });
+        setAddingRider(false);
+      }
+    } finally {
+      setCreatingRider(false);
+    }
+  };
+
   const pushStatus = async (id: string, backendStatus: string) => {
     if (busyIds.current.has(id)) return;
     busyIds.current.add(id);
+    setPendingIds((prev) => new Set(prev).add(id));
     try {
       const numericId = id.replace("#", "");
       await apiFetch(`/admin/orders/${numericId}/status`, {
@@ -190,6 +274,16 @@ export default function AdminOrdersScreen() {
       // Left as-is — the next poll reconciles with the server's real state.
     } finally {
       busyIds.current.delete(id);
+      // Keep the button disabled a little longer than the request itself —
+      // otherwise a double-tap that lands right as the label swaps to the
+      // next stage fires that next action immediately.
+      setTimeout(() => {
+        setPendingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      }, 700);
     }
   };
 
@@ -311,13 +405,73 @@ export default function AdminOrdersScreen() {
           onPress={() => whatsapp(current)} />
       </View>
 
+      {current.status !== "New" && current.status !== "Cancelled" && (
+        <>
+          <View style={styles.divider} />
+          <Text style={styles.blockLabel}>RIDER DETAILS</Text>
+          <Text style={styles.riderHint}>
+            Pick a saved rider — this shows up on the customer's tracking screen.
+          </Text>
+
+          <View style={styles.riderChips}>
+            {riders.filter((r) => r.active).map((r) => {
+              const selected = riderDraft.phone === r.phone && riderDraft.name === r.name;
+              return (
+                <Pressable
+                  key={r.id}
+                  onPress={() => setRiderDraft({ name: r.name, phone: r.phone, vehicle: r.vehicle ?? "" })}
+                  style={[styles.riderChip, selected && styles.riderChipActive]}
+                >
+                  <Text style={[styles.riderChipText, selected && styles.riderChipTextActive]}>
+                    {r.name}
+                  </Text>
+                  {r.vehicle ? (
+                    <Text style={[styles.riderChipSub, selected && styles.riderChipTextActive]}>
+                      {r.vehicle}
+                    </Text>
+                  ) : null}
+                </Pressable>
+              );
+            })}
+            <Pressable onPress={() => setAddingRider(true)} style={styles.riderChipAdd}>
+              <Icon name="plus" size={12} color={Admin.red} />
+              <Text style={styles.riderChipAddText}>New rider</Text>
+            </Pressable>
+          </View>
+
+          {riderDraft.name ? (
+            <View style={styles.riderSelectedRow}>
+              <Icon name="user-check" size={13} color={Admin.textMuted} />
+              <Text style={styles.riderSelectedText}>
+                {riderDraft.name} · {riderDraft.phone}
+                {riderDraft.vehicle ? ` · ${riderDraft.vehicle}` : ""}
+              </Text>
+            </View>
+          ) : (
+            <Text style={styles.riderSelectedEmpty}>No rider assigned yet.</Text>
+          )}
+
+          <Button
+            label={savingRider ? "Saving..." : "Save rider details"}
+            icon="check"
+            variant="secondary"
+            size="sm"
+            disabled={savingRider || !riderDraft.name}
+            onPress={saveRiderDetails}
+            style={{ marginTop: 10 }}
+          />
+        </>
+      )}
+
       <View style={styles.actionRow}>
         {current.status === "New" && (
           <Button label="Decline" variant="danger" icon="x"
+            disabled={pendingIds.has(current.id)}
             onPress={() => decline(current)} style={{ flex: 1 }} />
         )}
         {action ? (
           <Button label={action.label} icon={action.icon}
+            disabled={pendingIds.has(current.id)}
             onPress={() => advance(current.id)} style={{ flex: 1 }} />
         ) : (
           <View style={styles.closedNote}>
@@ -432,8 +586,10 @@ export default function AdminOrdersScreen() {
                           {o.status === "New" && (
                             <View style={styles.miniRow}>
                               <Button label="Decline" variant="danger" size="sm"
+                                disabled={pendingIds.has(o.id)}
                                 onPress={() => decline(o)} style={{ flex: 1 }} />
                               <Button label="Accept" size="sm"
+                                disabled={pendingIds.has(o.id)}
                                 onPress={() => advance(o.id)} style={{ flex: 1 }} />
                             </View>
                           )}
@@ -453,6 +609,53 @@ export default function AdminOrdersScreen() {
           )}
         </View>
       </ScrollView>
+
+      <ModalSheet
+        visible={addingRider}
+        title="Add a rider"
+        subtitle="Saved to the roster so it can be picked for any order."
+        onClose={() => setAddingRider(false)}
+        footer={
+          <>
+            <Button label="Cancel" variant="secondary" onPress={() => setAddingRider(false)} />
+            <Button
+              label={creatingRider ? "Adding..." : "Add rider"}
+              disabled={creatingRider}
+              onPress={handleAddRider}
+            />
+          </>
+        }
+      >
+        <Field label="Full name">
+          <TextInput
+            style={fieldStyles.input}
+            value={newRider.name}
+            onChangeText={(t) => setNewRider((d) => ({ ...d, name: t }))}
+            placeholder="e.g. Kojo Mensah"
+            placeholderTextColor={Admin.textFaint}
+            autoCapitalize="words"
+          />
+        </Field>
+        <Field label="Phone number">
+          <TextInput
+            style={fieldStyles.input}
+            value={newRider.phone}
+            onChangeText={(t) => setNewRider((d) => ({ ...d, phone: t }))}
+            placeholder="0244 112 233"
+            placeholderTextColor={Admin.textFaint}
+            keyboardType="phone-pad"
+          />
+        </Field>
+        <Field label="Vehicle (optional)">
+          <TextInput
+            style={fieldStyles.input}
+            value={newRider.vehicle}
+            onChangeText={(t) => setNewRider((d) => ({ ...d, vehicle: t }))}
+            placeholder="e.g. Red Honda bike"
+            placeholderTextColor={Admin.textFaint}
+          />
+        </Field>
+      </ModalSheet>
     </View>
   );
 }
@@ -558,6 +761,25 @@ const styles = StyleSheet.create({
 
   address: { fontSize: 12.5, color: Admin.text, lineHeight: 18 },
   contactRow: { flexDirection: "row", gap: 9, marginTop: 12 },
+  riderHint: { fontSize: 11.5, color: Admin.textMuted, marginTop: -4, marginBottom: 10 },
+  riderChips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  riderChip: {
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10,
+    borderWidth: 1, borderColor: Admin.border, backgroundColor: Admin.surface,
+  },
+  riderChipActive: { backgroundColor: Admin.red, borderColor: Admin.red },
+  riderChipText: { fontSize: 12.5, fontWeight: "700", color: Admin.text },
+  riderChipTextActive: { color: "#FFFFFF" },
+  riderChipSub: { fontSize: 10.5, color: Admin.textMuted, marginTop: 1 },
+  riderChipAdd: {
+    flexDirection: "row", alignItems: "center", gap: 5,
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10,
+    borderWidth: 1, borderColor: Admin.red, borderStyle: "dashed",
+  },
+  riderChipAddText: { fontSize: 12.5, fontWeight: "700", color: Admin.red },
+  riderSelectedRow: { flexDirection: "row", alignItems: "center", gap: 7, marginTop: 12 },
+  riderSelectedText: { fontSize: 12.5, color: Admin.text, fontWeight: "600" },
+  riderSelectedEmpty: { fontSize: 12, color: Admin.textFaint, marginTop: 12 },
   actionRow: { flexDirection: "row", gap: 10, marginTop: 18 },
   closedNote: {
     flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
