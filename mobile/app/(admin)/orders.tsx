@@ -131,7 +131,7 @@ const POLL_MS = 8000;
 
 export default function AdminOrdersScreen() {
   const { isPhone, isDesktop } = useResponsive();
-  const { confirm } = useDialog();
+  const { confirm, notify } = useDialog();
   const { orderId: orderIdParam } = useLocalSearchParams<{ orderId?: string }>();
   const { riders, loadRiders, addRider } = useAdminSession();
   const [orders, setOrders] = useState<Order[]>([]);
@@ -304,7 +304,15 @@ export default function AdminOrdersScreen() {
     if (!order) return;
     const i = FLOW.indexOf(order.status as (typeof FLOW)[number]);
     if (i === -1 || i >= FLOW.length - 1) return;
-    pushStatus(id, BACKEND_FLOW[i + 1]);
+    const nextStatus = BACKEND_FLOW[i + 1];
+    if (nextStatus === "OUT_FOR_DELIVERY" && !order.riderName) {
+      notify({
+        title: "Assign a rider first",
+        message: "Pick a rider in the RIDER DETAILS section before sending this order out for delivery.",
+      });
+      return;
+    }
+    pushStatus(id, nextStatus);
   };
 
   const decline = async (order: Order) => {
@@ -325,6 +333,7 @@ export default function AdminOrdersScreen() {
   const showDetail = isDesktop || (isPhone && openOnPhone) || (!isPhone && !isDesktop);
 
   const action = nextAction(current?.status ?? "Completed");
+  const needsRiderToSendOut = current?.status === "Ready" && !current.riderName;
 
   const renderDetail = () => (
     <Card style={styles.detailCard}>
@@ -483,7 +492,7 @@ export default function AdminOrdersScreen() {
         )}
         {action ? (
           <Button label={action.label} icon={action.icon}
-            disabled={pendingIds.has(current.id)}
+            disabled={pendingIds.has(current.id) || needsRiderToSendOut}
             onPress={() => advance(current.id)} style={{ flex: 1 }} />
         ) : (
           <View style={styles.closedNote}>
@@ -494,6 +503,11 @@ export default function AdminOrdersScreen() {
           </View>
         )}
       </View>
+      {needsRiderToSendOut && (
+        <Text style={styles.riderRequiredHint}>
+          Assign a rider above before sending this order out.
+        </Text>
+      )}
     </Card>
   );
 
@@ -798,6 +812,9 @@ const styles = StyleSheet.create({
     gap: 8, height: 40, borderRadius: 10, backgroundColor: Admin.divider,
   },
   closedText: { fontSize: 12.5, fontWeight: "700", color: Admin.textMuted },
+  riderRequiredHint: {
+    fontSize: 11.5, color: Admin.red, textAlign: "center", marginTop: 8,
+  },
 
   emptyCard: { alignItems: "center", gap: 10, paddingVertical: 44 },
   emptyText: { fontSize: 13, color: Admin.textMuted },

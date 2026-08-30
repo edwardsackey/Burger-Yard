@@ -242,6 +242,14 @@ Log major backend changes here going forward — schema changes, new
 integrations, new endpoints, breaking changes to existing ones.
 
 ### 2026-08-30
+- **An order can no longer be sent out without a rider assigned.**
+  `updateOrderStatus` rejects a `READY → OUT_FOR_DELIVERY` transition
+  (400, "Assign a rider before sending this order out for delivery.")
+  unless `riderName` is already on the order or included in that same
+  request. The admin Orders screen also disables the "Send out" button
+  and shows the same reasoning inline, so the rejection is a backend
+  safety net, not the primary way the admin finds out. Confirmed live:
+  blocked with no rider, succeeded immediately after assigning one.
 - **Added a loud new-order alert to the admin console.** A `NewOrdersProvider`
   (`mobile/context/NewOrdersContext.tsx`) polls `GET /admin/orders` every 8s
   from the admin layout — active on every admin screen, not just Orders —

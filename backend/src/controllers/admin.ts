@@ -75,6 +75,17 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response): Promis
     const { status, riderName, riderPhone, riderVehicle } = req.body;
     // status should be one of: NEW, PREPARING, READY, OUT_FOR_DELIVERY, COMPLETED, CANCELLED
 
+    if (status === 'OUT_FOR_DELIVERY') {
+      const existing = await prisma.order.findUnique({
+        where: { id: orderId },
+        select: { riderName: true },
+      });
+      if (!(riderName || existing?.riderName)) {
+        res.status(400).json({ message: 'Assign a rider before sending this order out for delivery.' });
+        return;
+      }
+    }
+
     const order = await prisma.order.update({
       where: { id: orderId },
       data: {
