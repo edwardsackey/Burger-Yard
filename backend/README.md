@@ -242,6 +242,17 @@ Log major backend changes here going forward — schema changes, new
 integrations, new endpoints, breaking changes to existing ones.
 
 ### 2026-08-30
+- **Added a loud new-order alert to the admin console.** A `NewOrdersProvider`
+  (`mobile/context/NewOrdersContext.tsx`) polls `GET /admin/orders` every 8s
+  from the admin layout — active on every admin screen, not just Orders —
+  and diffs against what it's seen before. A genuinely new "New"-status
+  order triggers a banner (customer, order id, total, a "View" button that
+  deep-links straight to that order) plus a repeating Web Audio beep that
+  doesn't stop until dismissed or viewed, so it can't be missed while
+  away from the screen. The first poll after signing in only records a
+  baseline silently — it doesn't alert on orders already sitting there.
+  Also replaced the sidebar's hardcoded "4" badge on Orders with the same
+  real New-order count.
 - **Closed two gaps around items going out of stock.** `placeOrder` now
   rejects an order containing an unavailable `MenuItem` with a clear
   message (`"{name} is no longer available..."`, 400) — previously it only

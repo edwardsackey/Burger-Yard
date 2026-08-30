@@ -1,7 +1,9 @@
+import { NewOrderAlert } from "@/components/admin/new-order-alert";
 import { Icon, type IconName } from "@/components/admin/ui";
 import { Admin, SIDEBAR_WIDTH } from "@/constants/admin-theme";
 import { BRAND } from "@/constants/menu-catalog";
 import { HOME_FOR, useAdminSession } from "@/context/AdminSession";
+import { NewOrdersProvider, useNewOrders } from "@/context/NewOrdersContext";
 import { useResponsive } from "@/hooks/use-responsive";
 import { Redirect, Slot, usePathname, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
@@ -29,7 +31,7 @@ type NavItem = {
 
 const NAV: NavItem[] = [
   { name: "Dashboard", screen: "dashboard", route: "/(admin)/dashboard", icon: "grid" },
-  { name: "Orders", screen: "orders", route: "/(admin)/orders", icon: "shopping-bag", badge: 4 },
+  { name: "Orders", screen: "orders", route: "/(admin)/orders", icon: "shopping-bag" },
   { name: "Menu", screen: "menu", route: "/(admin)/menu", icon: "list" },
   { name: "Payments", screen: "payments", route: "/(admin)/payments", icon: "credit-card" },
   { name: "Reports", screen: "reports", route: "/(admin)/reports", icon: "bar-chart-2" },
@@ -97,9 +99,12 @@ function SidebarBody({ onNavigate }: { onNavigate: () => void }) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, can, signOut } = useAdminSession();
+  const { newCount } = useNewOrders();
 
   // Staff never see the owner-only rows at all.
-  const visible = NAV.filter((item) => can(item.screen));
+  const visible = NAV.filter((item) => can(item.screen)).map((item) =>
+    item.screen === "orders" && newCount > 0 ? { ...item, badge: newCount } : item,
+  );
 
   return (
     <>
@@ -206,62 +211,66 @@ export default function AdminLayout() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
-      <View style={styles.row}>
-        {isDesktop && (
-          <View style={styles.sidebar}>
-            <SidebarBody onNavigate={() => {}} />
-          </View>
-        )}
-
-        <View style={styles.content}>
-          {!isDesktop && (
-            <View style={styles.mobileBar}>
-              <Pressable
-                onPress={() => setDrawerOpen(true)}
-                accessibilityRole="button"
-                accessibilityLabel="Open menu"
-                style={styles.hamburger}
-              >
-                <Icon name="menu" size={20} color={Admin.text} />
-              </Pressable>
-              <View style={styles.mobileBrandRow}>
-                <Image source={BRAND.logo} style={styles.logoImageSm} resizeMode="contain" />
-                <Text style={styles.mobileBrand}>Admin Console</Text>
-              </View>
+    <NewOrdersProvider>
+      <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+        <View style={styles.row}>
+          {isDesktop && (
+            <View style={styles.sidebar}>
+              <SidebarBody onNavigate={() => {}} />
             </View>
           )}
 
-          <Slot />
-        </View>
-      </View>
+          <View style={styles.content}>
+            {!isDesktop && (
+              <View style={styles.mobileBar}>
+                <Pressable
+                  onPress={() => setDrawerOpen(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Open menu"
+                  style={styles.hamburger}
+                >
+                  <Icon name="menu" size={20} color={Admin.text} />
+                </Pressable>
+                <View style={styles.mobileBrandRow}>
+                  <Image source={BRAND.logo} style={styles.logoImageSm} resizeMode="contain" />
+                  <Text style={styles.mobileBrand}>Admin Console</Text>
+                </View>
+              </View>
+            )}
 
-      {/* Drawer overlays the content below the desktop breakpoint */}
-      {!isDesktop && drawerOpen && (
-        <View style={StyleSheet.absoluteFill}>
-          <Animated.View
-            style={[styles.scrim, { opacity: drawer }]}
-            pointerEvents="auto"
-          >
-            <Pressable
-              style={StyleSheet.absoluteFill}
-              onPress={() => setDrawerOpen(false)}
-              accessibilityLabel="Close menu"
-            />
-          </Animated.View>
-
-          <Animated.View
-            style={[
-              styles.sidebar,
-              styles.drawer,
-              { transform: [{ translateX }], maxWidth: Math.min(SIDEBAR_WIDTH, width - 48) },
-            ]}
-          >
-            <SidebarBody onNavigate={() => setDrawerOpen(false)} />
-          </Animated.View>
+            <Slot />
+          </View>
         </View>
-      )}
-    </SafeAreaView>
+
+        {/* Drawer overlays the content below the desktop breakpoint */}
+        {!isDesktop && drawerOpen && (
+          <View style={StyleSheet.absoluteFill}>
+            <Animated.View
+              style={[styles.scrim, { opacity: drawer }]}
+              pointerEvents="auto"
+            >
+              <Pressable
+                style={StyleSheet.absoluteFill}
+                onPress={() => setDrawerOpen(false)}
+                accessibilityLabel="Close menu"
+              />
+            </Animated.View>
+
+            <Animated.View
+              style={[
+                styles.sidebar,
+                styles.drawer,
+                { transform: [{ translateX }], maxWidth: Math.min(SIDEBAR_WIDTH, width - 48) },
+              ]}
+            >
+              <SidebarBody onNavigate={() => setDrawerOpen(false)} />
+            </Animated.View>
+          </View>
+        )}
+
+        <NewOrderAlert />
+      </SafeAreaView>
+    </NewOrdersProvider>
   );
 }
 
