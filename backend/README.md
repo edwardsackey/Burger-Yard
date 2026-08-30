@@ -3,6 +3,31 @@
 Express + TypeScript API backing the Burger Yard customer app (and, eventually,
 the admin console). Prisma ORM (v7, driver adapters) on PostgreSQL.
 
+## ⚠️ Action needed — a real secret was pushed to GitHub
+
+`mobile/.env` was committed (`4341c37`) with the **real local Postgres
+password** (`DATABASE_URL`) and a Paystack **test** secret key. It's since
+been removed from tracking (`1090d33`, now covered by `.gitignore`), but
+that only stops *future* commits from including it — **it's still sitting
+in the repo's git history on GitHub right now**, readable by anyone who
+can see the repo or clones it. Untracking it did not undo the exposure.
+
+Still to do:
+- [ ] **Rotate the Postgres password** in `DATABASE_URL` (the exposed one —
+  `Andohbest1` — should be treated as compromised) and update it wherever
+  it's used locally.
+- [ ] Decide whether to scrub it from git history (e.g. `git filter-repo`
+  or the BFG Repo-Cleaner) — only actually closes the exposure if combined
+  with a force-push and everyone with a clone re-cloning; rotating the
+  password (above) is what actually neutralizes the leak regardless of
+  history.
+- [ ] Double-check `backend/.env` and the root `.env` were never committed
+  either — a quick check when this was written found no evidence they were
+  (`git log --all -- backend/.env .env` was empty), but re-verify before
+  treating this as resolved, especially if anyone else has pushed since.
+- [ ] Once rotated, if the repo is or will be public, treat this note as
+  done and safe to delete.
+
 ## Stack
 
 - **Express 5** (TypeScript, `tsx watch` for dev)
