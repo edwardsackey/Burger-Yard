@@ -217,6 +217,21 @@ menu is now live-backed too — see Changelog. What's still mock or unbuilt:
 Log major backend changes here going forward — schema changes, new
 integrations, new endpoints, breaking changes to existing ones.
 
+### 2026-08-30
+- **Closed two gaps around items going out of stock.** `placeOrder` now
+  rejects an order containing an unavailable `MenuItem` with a clear
+  message (`"{name} is no longer available..."`, 400) — previously it only
+  checked the item still existed, not whether it was still available, so a
+  stale cart (the app only fetches the menu once at startup, not on every
+  checkout) could still be ordered. Confirmed live: created a test item,
+  marked it unavailable, attempted to order it, got the rejection.
+  On the client, the cart screen now flags a line whose product isn't in
+  the live menu anymore ("No longer available", dimmed, quantity stepper
+  replaced with Remove) and disables "Proceed to Checkout" until it's
+  removed — `findProduct()` (new, returns `null` instead of a wrong
+  fallback item) added to `catalog.ts` alongside a new `removeLine()` on
+  the cart context.
+
 ### 2026-08-29
 - Fixed the live customer menu (added same day, above) using the wrong
   photo set for the 9 seeded items — it was falling back through

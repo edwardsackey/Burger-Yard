@@ -1,5 +1,5 @@
-import { getProduct } from "@/constants/catalog";
-import { useCart } from "@/store/app-store";
+import { findProduct, getProduct } from "@/constants/catalog";
+import { useCart, useMenuLoaded } from "@/store/app-store";
 import { useRouter } from "expo-router";
 import React from "react";
 import {
@@ -14,8 +14,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function CartScreen() {
   const router = useRouter();
-  const { lines, subtotal, deliveryFee, total, changeQuantity, clear } =
+  useMenuLoaded();
+  const { lines, subtotal, deliveryFee, total, changeQuantity, removeLine, clear } =
     useCart();
+  const hasUnavailable = lines.some((line) => !findProduct(line.productId));
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -52,7 +54,9 @@ export default function CartScreen() {
             {/* Items List */}
             <View style={styles.list}>
               {lines.map((line) => {
-                const product = getProduct(line.productId);
+                const product = findProduct(line.productId);
+                const unavailable = !product;
+                const thumb = product ?? getProduct(line.productId);
                 return (
                   <View key={line.key} style={styles.card}>
                     {/* The thumbnail and text open the product so extras can
@@ -61,46 +65,62 @@ export default function CartScreen() {
                     <TouchableOpacity
                       style={styles.tapArea}
                       activeOpacity={0.7}
+                      disabled={unavailable}
                       onPress={() =>
                         router.push(`/product-detail?id=${line.productId}`)
                       }
                     >
-                      <View style={styles.thumbBox}>
+                      <View style={[styles.thumbBox, unavailable && styles.thumbBoxDim]}>
                         <Image
-                          source={product.image}
+                          source={thumb.image}
                           style={styles.thumb}
-                          resizeMode={product.fit}
+                          resizeMode={thumb.fit}
                         />
                       </View>
 
                       <View style={styles.cardInfo}>
-                        <Text style={styles.itemName}>{line.name}</Text>
-                        <Text style={styles.itemModifiers}>
-                          {line.extras.length
-                            ? `+ ${line.extras.join(", ")}`
-                            : "Standard"}
+                        <Text style={[styles.itemName, unavailable && styles.itemNameDim]}>
+                          {line.name}
                         </Text>
-                        <Text style={styles.itemPrice}>
+                        {unavailable ? (
+                          <Text style={styles.unavailableText}>No longer available</Text>
+                        ) : (
+                          <Text style={styles.itemModifiers}>
+                            {line.extras.length
+                              ? `+ ${line.extras.join(", ")}`
+                              : "Standard"}
+                          </Text>
+                        )}
+                        <Text style={[styles.itemPrice, unavailable && styles.itemNameDim]}>
                           GHS {line.unitPrice * line.quantity}
                         </Text>
                       </View>
                     </TouchableOpacity>
 
-                    <View style={styles.qtyControl}>
+                    {unavailable ? (
                       <TouchableOpacity
-                        style={styles.qtyBtn}
-                        onPress={() => changeQuantity(line.key, -1)}
+                        style={styles.removeBtn}
+                        onPress={() => removeLine(line.key)}
                       >
-                        <Text style={styles.qtyBtnText}>-</Text>
+                        <Text style={styles.removeBtnText}>Remove</Text>
                       </TouchableOpacity>
-                      <Text style={styles.qtyText}>{line.quantity}</Text>
-                      <TouchableOpacity
-                        style={styles.qtyBtn}
-                        onPress={() => changeQuantity(line.key, 1)}
-                      >
-                        <Text style={styles.qtyBtnText}>+</Text>
-                      </TouchableOpacity>
-                    </View>
+                    ) : (
+                      <View style={styles.qtyControl}>
+                        <TouchableOpacity
+                          style={styles.qtyBtn}
+                          onPress={() => changeQuantity(line.key, -1)}
+                        >
+                          <Text style={styles.qtyBtnText}>-</Text>
+                        </TouchableOpacity>
+                        <Text style={styles.qtyText}>{line.quantity}</Text>
+                        <TouchableOpacity
+                          style={styles.qtyBtn}
+                          onPress={() => changeQuantity(line.key, 1)}
+                        >
+                          <Text style={styles.qtyBtnText}>+</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
                   </View>
                 );
               })}
@@ -132,8 +152,14 @@ export default function CartScreen() {
 
           {/* Checkout Footer Bar */}
           <View style={styles.footer}>
+            {hasUnavailable && (
+              <Text style={styles.blockedHint}>
+                Remove the unavailable item(s) above to continue.
+              </Text>
+            )}
             <TouchableOpacity
-              style={styles.checkoutBtn}
+              style={[styles.checkoutBtn, hasUnavailable && styles.checkoutBtnDisabled]}
+              disabled={hasUnavailable}
               onPress={() => router.push("/checkout")}
             >
               <Text style={styles.checkoutText}>
@@ -184,6 +210,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   thumb: { width: "100%", height: "100%" },
+  thumbBoxDim: { opacity: 0.4 },
   cardInfo: { flex: 1, marginLeft: 12 },
   itemName: {
     fontSize: 14,
@@ -191,8 +218,23 @@ const styles = StyleSheet.create({
     color: "#111",
     marginBottom: 2,
   },
+  itemNameDim: { color: "#9CA3AF" },
   itemModifiers: { fontSize: 11, color: "#666", marginBottom: 4 },
+  unavailableText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#D62828",
+    marginBottom: 4,
+  },
   itemPrice: { fontSize: 14, fontWeight: "bold", color: "#D62828" },
+  removeBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#D62828",
+  },
+  removeBtnText: { fontSize: 12, fontWeight: "bold", color: "#D62828" },
   qtyControl: {
     flexDirection: "row",
     alignItems: "center",
@@ -270,7 +312,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  checkoutBtnDisabled: { backgroundColor: "#F3A5A5" },
   checkoutText: { color: "#FFF", fontSize: 15, fontWeight: "bold" },
+  blockedHint: {
+    fontSize: 12,
+    color: "#D62828",
+    textAlign: "center",
+    marginBottom: 10,
+    fontWeight: "600",
+  },
   emptyContainer: {
     flex: 1,
     justifyContent: "center",

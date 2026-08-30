@@ -219,6 +219,13 @@ export function getProduct(id: string): Product {
   return list.find((p) => p.id === id) ?? list[0] ?? PRODUCTS[0];
 }
 
+/** Unlike getProduct, this doesn't fall back to *some* product when the id
+ * isn't in the live menu — that's exactly the case the cart needs to detect
+ * (e.g. the item went out of stock after it was added). */
+export function findProduct(id: string): Product | null {
+  return getProducts().find((p) => p.id === id) ?? null;
+}
+
 /** The banner combo, so its copy and its detail screen read from one source.
  * Falls back to the first real item if the seeded id isn't in the live menu
  * (e.g. it was ever deleted) rather than crashing the home screen. */

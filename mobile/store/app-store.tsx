@@ -33,6 +33,7 @@ type CartValue = {
   total: number;
   addItem: (productId: string, extras?: string[], quantity?: number) => void;
   changeQuantity: (key: string, delta: number) => void;
+  removeLine: (key: string) => void;
   clear: () => void;
 };
 
@@ -174,6 +175,10 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
+  const removeLine = useCallback((key: string) => {
+    setLines((prev) => prev.filter((l) => l.key !== key));
+  }, []);
+
   const clear = useCallback(() => setLines([]), []);
 
   const notify = useCallback((title: string, body: string) => {
@@ -206,9 +211,10 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
       total: subtotal + deliveryFee,
       addItem,
       changeQuantity,
+      removeLine,
       clear,
     };
-  }, [lines, addItem, changeQuantity, clear]);
+  }, [lines, addItem, changeQuantity, removeLine, clear]);
 
   const notifications = useMemo<NotificationsValue>(
     () => ({

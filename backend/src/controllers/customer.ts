@@ -38,6 +38,15 @@ export const placeOrder = async (req: AuthRequest, res: Response): Promise<void>
         res.status(400).json({ message: `Menu item ${item.menuItemId} not found` });
         return;
       }
+      if (!menuItem.available) {
+        // Can legitimately happen: the item was in the customer's cart
+        // before the admin marked it unavailable, and the app only
+        // refetches the menu once at startup, not on every checkout.
+        res.status(400).json({
+          message: `${menuItem.name} is no longer available. Please remove it from your cart and try again.`,
+        });
+        return;
+      }
       const extras = Array.isArray(item.extras) ? item.extras : [];
       const extrasTotal = extras.reduce((sum: number, e: { price?: number }) => sum + (e.price ?? 0), 0);
       const unitPrice = menuItem.price + extrasTotal;
