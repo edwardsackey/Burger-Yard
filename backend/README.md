@@ -3,30 +3,29 @@
 Express + TypeScript API backing the Burger Yard customer app (and, eventually,
 the admin console). Prisma ORM (v7, driver adapters) on PostgreSQL.
 
-## ⚠️ Action needed — a real secret was pushed to GitHub
+## ✅ Resolved — a real secret was pushed to GitHub (2026-08-30)
 
-`mobile/.env` was committed (`4341c37`) with the **real local Postgres
-password** (`DATABASE_URL`) and a Paystack **test** secret key. It's since
-been removed from tracking (`1090d33`, now covered by `.gitignore`), but
-that only stops *future* commits from including it — **it's still sitting
-in the repo's git history on GitHub right now**, readable by anyone who
-can see the repo or clones it. Untracking it did not undo the exposure.
+`mobile/.env` was committed with the real local Postgres password
+(`DATABASE_URL`) and a Paystack **test** secret key. Both the actual
+exposure and its traces have been dealt with:
 
-Still to do:
-- [ ] **Rotate the Postgres password** in `DATABASE_URL` (the exposed one —
-  `Andohbest1` — should be treated as compromised) and update it wherever
-  it's used locally.
-- [ ] Decide whether to scrub it from git history (e.g. `git filter-repo`
-  or the BFG Repo-Cleaner) — only actually closes the exposure if combined
-  with a force-push and everyone with a clone re-cloning; rotating the
-  password (above) is what actually neutralizes the leak regardless of
-  history.
-- [ ] Double-check `backend/.env` and the root `.env` were never committed
-  either — a quick check when this was written found no evidence they were
-  (`git log --all -- backend/.env .env` was empty), but re-verify before
-  treating this as resolved, especially if anyone else has pushed since.
-- [ ] Once rotated, if the repo is or will be public, treat this note as
-  done and safe to delete.
+- **Password rotated** — the exposed Postgres password no longer works;
+  the database now uses a new one (in `backend/.env`, not committed).
+- **History scrubbed** — `mobile/.env` was stripped from every commit on
+  `main` and `feature/burger-yard-updates` with `git filter-repo`, then
+  force-pushed. Verified against a fresh mirror clone pulled directly from
+  GitHub: `git log --all --oneline -- mobile/.env` is empty. This rewrote
+  commit SHAs on those branches (`front` never contained the file, so it
+  was untouched) — **anyone with an existing local clone needs to
+  re-clone, or `git fetch && git reset --hard origin/<branch>` on each
+  branch they track**, since their old history now conflicts with what's
+  on GitHub.
+- `backend/.env` and the root `.env` were checked and were never committed.
+
+One caveat worth knowing: a force-push rewrites what GitHub serves for the
+repo going forward, but doesn't retroactively erase anything a fork, a
+cached page, or a scraper already captured before the rewrite. The
+password rotation is what actually closes that door regardless.
 
 ## Stack
 
