@@ -1,4 +1,4 @@
-import { NewOrderAlert } from "@/components/admin/new-order-alert";
+import { AdminAlertBanner } from "@/components/admin/admin-alert-banner";
 import { Icon, type IconName } from "@/components/admin/ui";
 import { Admin, SIDEBAR_WIDTH } from "@/constants/admin-theme";
 import { BRAND } from "@/constants/menu-catalog";
@@ -268,7 +268,7 @@ export default function AdminLayout() {
           </View>
         )}
 
-        <NewOrderAlert />
+        <AdminAlertBanner />
       </SafeAreaView>
     </NewOrdersProvider>
   );

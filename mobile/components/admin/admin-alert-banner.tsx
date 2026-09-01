@@ -4,45 +4,56 @@ import { useRouter } from "expo-router";
 import React, { useEffect } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { startAlertSound, stopAlertSound } from "./alert-sound";
-import { Icon } from "./ui";
+import { Icon, type IconName } from "./ui";
 
 /** Sits at the top of every admin screen (mounted once in the admin layout)
- * and keeps ringing until a new order is acknowledged — easy to miss a
- * quiet toast when heads-down in the kitchen, harder to miss a sound that
- * doesn't stop on its own. */
-export function NewOrderAlert() {
-  const { incoming, dismissAll } = useNewOrders();
+ * and keeps ringing until a new order or payment confirmation is
+ * acknowledged — easy to miss a quiet toast when heads-down in the
+ * kitchen, harder to miss a sound that doesn't stop on its own. */
+export function AdminAlertBanner() {
+  const { alerts, dismissAll } = useNewOrders();
   const router = useRouter();
 
   useEffect(() => {
-    if (incoming.length > 0) {
+    if (alerts.length > 0) {
       startAlertSound();
     } else {
       stopAlertSound();
     }
     return () => stopAlertSound();
-  }, [incoming.length]);
+  }, [alerts.length]);
 
-  if (incoming.length === 0) return null;
+  if (alerts.length === 0) return null;
 
-  const latest = incoming[incoming.length - 1];
+  const latest = alerts[alerts.length - 1];
+  const icon: IconName = latest.kind === "payment" ? "credit-card" : "bell";
+
+  let title: string;
+  let sub: string;
+  if (alerts.length === 1) {
+    title =
+      latest.kind === "payment"
+        ? `Payment received from ${latest.customer}`
+        : `New order from ${latest.customer}`;
+    sub =
+      latest.kind === "payment"
+        ? `#${latest.id} · ${latest.method} · GHS ${latest.total}`
+        : `#${latest.id} · GHS ${latest.total}`;
+  } else {
+    title = `${alerts.length} new updates`;
+    sub = alerts.map((a) => `#${a.id}`).join(", ");
+  }
 
   return (
     <View style={styles.wrap} pointerEvents="box-none">
       <View style={styles.banner}>
         <View style={styles.iconCircle}>
-          <Icon name="bell" size={18} color="#FFFFFF" />
+          <Icon name={icon} size={18} color="#FFFFFF" />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.title}>
-            {incoming.length === 1
-              ? `New order from ${latest.customer}`
-              : `${incoming.length} new orders`}
-          </Text>
+          <Text style={styles.title}>{title}</Text>
           <Text style={styles.sub} numberOfLines={1}>
-            {incoming.length === 1
-              ? `#${latest.id} · GHS ${latest.total}`
-              : incoming.map((o) => `#${o.id}`).join(", ")}
+            {sub}
           </Text>
         </View>
         <Pressable

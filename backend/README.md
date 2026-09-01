@@ -245,6 +245,19 @@ Log major backend changes here going forward — schema changes, new
 integrations, new endpoints, breaking changes to existing ones.
 
 ### 2026-09-01
+- **A successful payment now shows up on the admin side, two ways.**
+  `NewOrdersProvider`'s existing poll now also tracks which order ids it's
+  seen *paid*, not just which ids it's seen — a MoMo/Card order flipping
+  `paid: false → true` (a real Paystack confirmation; cash orders never
+  do this) fires the same loud banner-and-beep alert already built for
+  new orders. The alert component moved from `new-order-alert.tsx` to
+  `admin-alert-banner.tsx` (`AdminAlertBanner`) so one banner covers both
+  event kinds. Separately, every row in the Orders list now shows a Paid
+  (green) / Pending (amber) / COD (grey) badge next to the total —
+  previously payment status was only visible after opening an order's
+  detail panel. Confirmed live: simulated a MoMo order's payment
+  confirming and traced the exact `paid: false → true` transition the
+  poll-diff logic and the list badge both key off.
 - **The delivery code is now actually verified before an order can be
   marked delivered.** `updateOrderStatus` rejects `OUT_FOR_DELIVERY →
   COMPLETED` (400, "Incorrect delivery code.") unless the request's

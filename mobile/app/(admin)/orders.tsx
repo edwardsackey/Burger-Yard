@@ -654,7 +654,32 @@ export default function AdminOrdersScreen() {
                             {o.summary}
                           </Text>
                           <View style={styles.orderBottom}>
-                            <Text style={styles.orderTotal}>{o.total}</Text>
+                            <View style={styles.orderBottomLeft}>
+                              <Text style={styles.orderTotal}>{o.total}</Text>
+                              <View
+                                style={[
+                                  styles.payBadge,
+                                  o.paid
+                                    ? styles.payBadgePaid
+                                    : o.payment === "Cash"
+                                      ? styles.payBadgeCash
+                                      : styles.payBadgePending,
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.payBadgeText,
+                                    o.paid
+                                      ? styles.payBadgeTextPaid
+                                      : o.payment === "Cash"
+                                        ? styles.payBadgeTextCash
+                                        : styles.payBadgeTextPending,
+                                  ]}
+                                >
+                                  {o.paid ? "Paid" : o.payment === "Cash" ? "COD" : "Pending"}
+                                </Text>
+                              </View>
+                            </View>
                             <Text style={styles.orderTime}>{o.timeAgo}</Text>
                           </View>
 
@@ -789,8 +814,17 @@ const styles = StyleSheet.create({
   orderCustomer: { fontSize: 12.5, color: Admin.text },
   orderSummary: { fontSize: 12, color: Admin.textMuted },
   orderBottom: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  orderBottomLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
   orderTotal: { fontSize: 14, fontWeight: "800", color: Admin.red },
   orderTime: { fontSize: 11.5, color: Admin.textFaint },
+  payBadge: { paddingHorizontal: 7, paddingVertical: 2.5, borderRadius: 6 },
+  payBadgePaid: { backgroundColor: Admin.greenSoft },
+  payBadgeCash: { backgroundColor: Admin.divider },
+  payBadgePending: { backgroundColor: "#FEF3C7" },
+  payBadgeText: { fontSize: 10, fontWeight: "700" },
+  payBadgeTextPaid: { color: Admin.green },
+  payBadgeTextCash: { color: Admin.textMuted },
+  payBadgeTextPending: { color: "#B45309" },
   miniRow: { flexDirection: "row", gap: 8, marginTop: 6 },
 
   detailCard: { gap: 0 },
