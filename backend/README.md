@@ -206,12 +206,14 @@ unused multi-tenant complexity:
 | `PUT/DELETE /api/admin/riders/:id` | Owner-only. Edit/deactivate/remove a rider from the roster |
 | `GET /api/admin/dashboard?period=today\|week\|month` | Owner-only. Real sales/orders/avg-order-value/new-customer stats (with a delta vs the equivalent previous period), a revenue series bucketed to fit the period, best sellers, an hour-of-day order histogram, and the 6 most recent orders — all computed live from `Order`/`OrderItem`/`User`, nothing precomputed or cached |
 | `GET /api/admin/reports?days=7\|30\|90` | Owner-only. Gross revenue and orders-completed with deltas vs the equivalent prior window, a real avg prep time (`readyAt - acceptedAt`, `null` until an order has both), a revenue trend (daily/weekly/monthly buckets depending on window size), a peak-hours histogram, and top-selling items by quantity with category + revenue |
+| `GET /api/admin/payments` | Owner-only. Every order reshaped as a payment record (no separate Payment table — see schema notes) with a derived status (`Paid`/`Awaiting payment`/`Cash on delivery`/`Cancelled`), plus total collected, cash outstanding, and amount awaiting online confirmation. Cancelled orders are included deliberately — a paid, cancelled order still needs a refund |
 
 ## Roadmap — what's still ahead
 
 Admin auth (owner login + staff PIN login), the Customers, Orders,
-Dashboard, Reports, and Menu pages are now real, and the customer app's
-menu is now live-backed too — see Changelog. What's still mock or unbuilt:
+Dashboard, Reports, Menu, and Payments pages are now real, and the
+customer app's menu is now live-backed too — see Changelog. What's still
+mock or unbuilt:
 
 - Real image **upload** — the menu form takes a photo URL (paste-in), not
   a file picker/cloud storage upload. Good enough for now, but a real
@@ -223,10 +225,11 @@ menu is now live-backed too — see Changelog. What's still mock or unbuilt:
   runtime. Only a real native build (`eas build`, or `expo prebuild` +
   local build) actually reads this. Android's map stays blank under Expo
   Go regardless of this key until such a build exists.
-- Admin Payments page, backed by real transaction data. `Paid`/`Pending` are
-  straightforward from `Order.paid`, but the mock's `Failed`/`Refunded`
-  states have no real backing yet — nothing currently records a failed
-  Paystack charge or a refund, so that needs its own small feature first
+- No **Failed**/**Refunded** payment tracking — nothing currently records
+  a failed Paystack charge or an issued refund, so the Payments page can
+  only ever show `Paid`/`Awaiting payment`/`Cash on delivery`/`Cancelled`.
+  A cancelled-but-paid order is visible (so the admin knows a refund is
+  owed) but nothing tracks whether that refund actually happened yet.
 - An EAS project is now configured (`extra.eas.projectId` in `app.json`,
   under the `menialshot` Expo account), so `getExpoPushTokenAsync()` can
   actually mint real tokens in Expo Go — no custom dev build required
@@ -245,6 +248,18 @@ Log major backend changes here going forward — schema changes, new
 integrations, new endpoints, breaking changes to existing ones.
 
 ### 2026-09-01
+- **Wired the admin Payments page to real data** (`GET /admin/payments`,
+  owner-only), replacing the hardcoded `TXNS` array. Every order is
+  reshaped into a payment row with a derived status — `Paid`, `Awaiting
+  payment` (MoMo/Card not yet confirmed), `Cash on delivery`, or
+  `Cancelled` — computed from the same `paid`/`paymentMethod`/`status`
+  fields already on `Order` (no separate Payment table, per the schema
+  notes). Dropped the mock's `Failed`/`Refunded` statuses since nothing
+  tracks either yet (see Roadmap); cancelled orders are shown rather than
+  filtered out, since a paid-then-cancelled order still needs a refund.
+  Stats (`total collected`, `cash outstanding`, `awaiting payment`) are
+  computed server-side from the same rows. Confirmed live against real
+  order data.
 - **A successful payment now shows up on the admin side, two ways.**
   `NewOrdersProvider`'s existing poll now also tracks which order ids it's
   seen *paid*, not just which ids it's seen — a MoMo/Card order flipping

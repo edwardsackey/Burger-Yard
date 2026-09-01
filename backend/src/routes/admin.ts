@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getAllOrders, getCustomers, updateOrderStatus } from '../controllers/admin';
+import { getAllOrders, getCustomers, getPayments, updateOrderStatus } from '../controllers/admin';
 import { listMenu, addMenuItem, updateMenuItem, deleteMenuItem } from '../controllers/menu';
 import {
   ownerLogin,
@@ -50,5 +50,6 @@ router.delete('/riders/:id', authenticate, requireOwner, deleteRider);
 // Owner-only — matches OWNER_ONLY in mobile/context/AdminSession.tsx.
 router.get('/dashboard', authenticate, requireOwner, getDashboard);
 router.get('/reports', authenticate, requireOwner, getReports);
+router.get('/payments', authenticate, requireOwner, getPayments);
 
 export default router;

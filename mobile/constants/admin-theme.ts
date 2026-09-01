@@ -43,6 +43,8 @@ export const StatusTone: Record<string, { fg: string; bg: string }> = {
   Pending: { fg: Admin.amber, bg: Admin.amberSoft },
   Failed: { fg: Admin.red, bg: Admin.redSoft },
   Refunded: { fg: Admin.textMuted, bg: "#F3F4F6" },
+  "Awaiting payment": { fg: Admin.amber, bg: Admin.amberSoft },
+  "Cash on delivery": { fg: Admin.textMuted, bg: Admin.divider },
 };
 
 /**

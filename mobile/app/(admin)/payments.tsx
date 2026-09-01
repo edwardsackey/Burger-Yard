@@ -1,3 +1,4 @@
+import { apiFetch } from "@/api";
 import { Cell, DataTable, type Column } from "@/components/admin/data-table";
 import {
   FilterTabs,
@@ -9,82 +10,110 @@ import {
 import { ExportButton } from "@/components/admin/export-menu";
 import { FadeIn, StatusPill } from "@/components/admin/ui";
 import { useResponsive } from "@/hooks/use-responsive";
-import React, { useMemo, useState } from "react";
-import { ScrollView, View } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, ScrollView, View } from "react-native";
 
-type Txn = {
-  id: string;
-  order: string;
+type Status = "Paid" | "Awaiting payment" | "Cash on delivery" | "Cancelled";
+
+type Row = {
+  id: number;
   customer: string;
-  method: "MoMo" | "Card" | "Cash";
+  method: string;
+  momoNetwork: string | null;
   amount: number;
-  status: "Paid" | "Pending" | "Failed" | "Refunded";
+  paid: boolean;
+  cancelled: boolean;
   time: string;
 };
 
-const TXNS: Txn[] = [
-  { id: "TXN-88421", order: "#1042", customer: "Ama Mensah", method: "MoMo", amount: 195, status: "Paid", time: "12:09" },
-  { id: "TXN-88420", order: "#1041", customer: "Kwesi Boateng", method: "Cash", amount: 70, status: "Pending", time: "12:01" },
-  { id: "TXN-88419", order: "#1040", customer: "Adwoa Owusu", method: "MoMo", amount: 120, status: "Paid", time: "11:48" },
-  { id: "TXN-88418", order: "#1039", customer: "Yaw Darko", method: "Card", amount: 100, status: "Failed", time: "11:42" },
-  { id: "TXN-88417", order: "#1038", customer: "Akosua Frimpong", method: "MoMo", amount: 35, status: "Paid", time: "11:30" },
-  { id: "TXN-88416", order: "#1037", customer: "Kofi Antwi", method: "Card", amount: 105, status: "Refunded", time: "11:12" },
-];
+type PaymentsData = {
+  rows: Row[];
+  stats: { collected: number; cashOutstanding: number; awaitingAmount: number; awaitingCount: number };
+};
 
-const FILTERS = ["All", "Paid", "Pending", "Failed", "Refunded"];
+const METHOD_LABEL: Record<string, string> = { MOMO: "MoMo", CARD: "Card", CASH: "Cash" };
+const FILTERS: Status[] = ["Paid", "Awaiting payment", "Cash on delivery", "Cancelled"];
+
+function statusOf(row: Row): Status {
+  if (row.cancelled) return "Cancelled";
+  if (row.paid) return "Paid";
+  return row.method === "CASH" ? "Cash on delivery" : "Awaiting payment";
+}
+
+function methodLabel(row: Row): string {
+  const base = METHOD_LABEL[row.method] ?? row.method;
+  return row.momoNetwork ? `${base} · ${row.momoNetwork}` : base;
+}
 
 export default function AdminPaymentsScreen() {
   const { isPhone } = useResponsive();
   const [filter, setFilter] = useState("All");
   const [query, setQuery] = useState("");
+  const [data, setData] = useState<PaymentsData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiFetch("/admin/payments")
+      .then(setData)
+      .catch(() => {
+        // Left empty — the empty state covers this fine.
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const allRows = data?.rows ?? [];
 
   const counts = useMemo(() => {
-    const map: Record<string, number> = { All: TXNS.length };
-    FILTERS.slice(1).forEach((f) => {
-      map[f] = TXNS.filter((t) => t.status === f).length;
+    const map: Record<string, number> = { All: allRows.length };
+    FILTERS.forEach((f) => {
+      map[f] = allRows.filter((r) => statusOf(r) === f).length;
     });
     return map;
-  }, []);
+  }, [allRows]);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return TXNS.filter((t) => {
-      const inFilter = filter === "All" || t.status === filter;
+    return allRows.filter((r) => {
+      const inFilter = filter === "All" || statusOf(r) === filter;
       const matches =
         !q ||
-        t.id.toLowerCase().includes(q) ||
-        t.order.toLowerCase().includes(q) ||
-        t.customer.toLowerCase().includes(q);
+        String(r.id).includes(q) ||
+        r.customer.toLowerCase().includes(q);
       return inFilter && matches;
     });
-  }, [filter, query]);
-
-  const collected = TXNS.filter((t) => t.status === "Paid").reduce((s, t) => s + t.amount, 0);
-  const cash = TXNS.filter((t) => t.method === "Cash").reduce((s, t) => s + t.amount, 0);
-  const pending = TXNS.filter((t) => t.status === "Pending").reduce((s, t) => s + t.amount, 0);
+  }, [allRows, filter, query]);
 
   const buildExport = () => ({
     title: `Payments, ${filter}`,
-    subtitle: "Today · Ayeduase New Site",
-    columns: ["Txn ID", "Order", "Customer", "Method", "Amount", "Status", "Time"],
-    rows: rows.map((r) => [r.id, r.order, r.customer, r.method, `GHS ${r.amount}`, r.status, r.time]),
+    subtitle: "The Burger Yard",
+    columns: ["Order", "Customer", "Method", "Amount", "Status", "Time"],
+    rows: rows.map((r) => [
+      `#${r.id}`,
+      r.customer,
+      methodLabel(r),
+      `GHS ${r.amount}`,
+      statusOf(r),
+      new Date(r.time).toLocaleString([], { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }),
+    ]),
   });
 
-  const columns: Column<Txn>[] = [
-    { key: "id", header: "TXN ID", flex: 1.4, mobile: "title",
-      render: (r) => <Cell strong>{r.id}</Cell> },
-    { key: "order", header: "ORDER", flex: 0.9, mobile: "meta",
-      render: (r) => <Cell>{r.order}</Cell> },
+  const columns: Column<Row>[] = [
+    { key: "id", header: "ORDER", flex: 1, mobile: "title",
+      render: (r) => <Cell strong>{`#${r.id}`}</Cell> },
     { key: "customer", header: "CUSTOMER", flex: 1.6, mobile: "meta",
       render: (r) => <Cell>{r.customer}</Cell> },
-    { key: "method", header: "METHOD", flex: 1, mobile: "meta",
-      render: (r) => <Cell>{r.method}</Cell> },
+    { key: "method", header: "METHOD", flex: 1.2, mobile: "meta",
+      render: (r) => <Cell>{methodLabel(r)}</Cell> },
     { key: "amount", header: "AMOUNT", flex: 1, mobile: "trailing",
       render: (r) => <Cell strong>GHS {r.amount}</Cell> },
-    { key: "status", header: "STATUS", flex: 1.2,
-      render: (r) => <StatusPill status={r.status} /> },
-    { key: "time", header: "TIME", flex: 0.8, align: "right", mobile: "meta",
-      render: (r) => <Cell muted>{r.time}</Cell> },
+    { key: "status", header: "STATUS", flex: 1.3,
+      render: (r) => <StatusPill status={statusOf(r)} /> },
+    { key: "time", header: "TIME", flex: 1, align: "right", mobile: "meta",
+      render: (r) => (
+        <Cell muted>
+          {new Date(r.time).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+        </Cell>
+      ) },
   ];
 
   return (
@@ -96,36 +125,59 @@ export default function AdminPaymentsScreen() {
       >
         <PageHeader
           title="Payments & Revenue"
-          subtitle="Today · Ayeduase New Site"
+          subtitle="The Burger Yard"
         >
           <SearchBox
             value={query}
             onChange={setQuery}
-            placeholder="Search txn, order or name..."
+            placeholder="Search order or name..."
           />
           <ExportButton build={buildExport} />
         </PageHeader>
 
-        <StatRow
-          stats={[
-            { label: "Total collected today", value: `GHS ${collected}`, delta: "+9.2%", hint: "vs yesterday", icon: "credit-card" },
-            { label: "Cash collections", value: `GHS ${cash}`, hint: "Reconcile at close", icon: "dollar-sign" },
-            { label: "Awaiting payment", value: `GHS ${pending}`, hint: `${counts.Pending} orders`, icon: "clock" },
-          ]}
-        />
+        {loading && !data ? (
+          <ActivityIndicator style={{ marginVertical: 40 }} />
+        ) : (
+          <>
+            <StatRow
+              stats={[
+                {
+                  label: "Total collected",
+                  value: `GHS ${(data?.stats.collected ?? 0).toLocaleString()}`,
+                  hint: "All confirmed payments",
+                  icon: "credit-card",
+                },
+                {
+                  label: "Cash outstanding",
+                  value: `GHS ${(data?.stats.cashOutstanding ?? 0).toLocaleString()}`,
+                  hint: "Collect at delivery",
+                  icon: "dollar-sign",
+                },
+                {
+                  label: "Awaiting payment",
+                  value: `GHS ${(data?.stats.awaitingAmount ?? 0).toLocaleString()}`,
+                  hint: `${data?.stats.awaitingCount ?? 0} orders`,
+                  icon: "clock",
+                },
+              ]}
+            />
 
-        <FadeIn delay={90}>
-          <FilterTabs options={FILTERS} value={filter} onChange={setFilter} counts={counts} />
-        </FadeIn>
+            <FadeIn delay={90}>
+              <FilterTabs options={["All", ...FILTERS]} value={filter} onChange={setFilter} counts={counts} />
+            </FadeIn>
 
-        <FadeIn delay={130}>
-          <DataTable
-            columns={columns}
-            rows={rows}
-            keyExtractor={(r) => r.id}
-            emptyText={`No ${filter.toLowerCase()} transactions.`}
-          />
-        </FadeIn>
+            <FadeIn delay={130}>
+              <DataTable
+                columns={columns}
+                rows={rows}
+                keyExtractor={(r) => String(r.id)}
+                emptyText={
+                  filter === "All" ? "No payments yet." : `No ${filter.toLowerCase()} payments.`
+                }
+              />
+            </FadeIn>
+          </>
+        )}
       </ScrollView>
     </View>
   );

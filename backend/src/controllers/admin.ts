@@ -31,6 +31,53 @@ export const getAllOrders = async (req: AuthRequest, res: Response): Promise<voi
   }
 };
 
+// There's deliberately no separate Payment/Transaction table (see the
+// schema notes in the README) — each row here is just an Order re-shaped
+// as a payment record. Cancelled orders are included on purpose: a paid,
+// cancelled order still needs a refund, which the admin should see.
+export const getPayments = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const orders = await prisma.order.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        total_amount: true,
+        paymentMethod: true,
+        momoNetwork: true,
+        paid: true,
+        status: true,
+        createdAt: true,
+        user: { select: { name: true } },
+      },
+    });
+
+    const rows = orders.map((o) => ({
+      id: o.id,
+      customer: o.user?.name ?? 'Customer',
+      method: o.paymentMethod,
+      momoNetwork: o.momoNetwork,
+      amount: o.total_amount,
+      paid: o.paid,
+      cancelled: o.status === 'CANCELLED',
+      time: o.createdAt,
+    }));
+
+    const collected = rows.filter((r) => r.paid).reduce((s, r) => s + r.amount, 0);
+    const cashOutstanding = rows
+      .filter((r) => r.method === 'CASH' && !r.paid && !r.cancelled)
+      .reduce((s, r) => s + r.amount, 0);
+    const awaiting = rows.filter((r) => r.method !== 'CASH' && !r.paid && !r.cancelled);
+    const awaitingAmount = awaiting.reduce((s, r) => s + r.amount, 0);
+
+    res.json({
+      rows,
+      stats: { collected, cashOutstanding, awaitingAmount, awaitingCount: awaiting.length },
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 export const getCustomers = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const customers = await prisma.user.findMany({
