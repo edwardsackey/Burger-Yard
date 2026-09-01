@@ -216,6 +216,10 @@ menu is now live-backed too — see Changelog. What's still mock or unbuilt:
 - Real image **upload** — the menu form takes a photo URL (paste-in), not
   a file picker/cloud storage upload. Good enough for now, but a real
   admin will more often have a photo on their phone than a hosted URL
+- **Android's checkout map is blank** until a Google Maps SDK for Android
+  key is added to `app.json` (`android.config.googleMaps.apiKey`) —
+  `react-native-maps` requires it to render on Android at all (iOS needs
+  nothing; it uses Apple Maps). Deliberately deferred, not forgotten.
 - Admin Payments page, backed by real transaction data. `Paid`/`Pending` are
   straightforward from `Order.paid`, but the mock's `Failed`/`Refunded`
   states have no real backing yet — nothing currently records a failed
@@ -242,6 +246,20 @@ Log major backend changes here going forward — schema changes, new
 integrations, new endpoints, breaking changes to existing ones.
 
 ### 2026-09-01
+- **Checkout's map now works on all three platforms, plus tap-to-select,
+  full-screen expand, and "use my location."** iOS uses Apple Maps (free,
+  no key, already worked); Android uses `react-native-maps`'s default
+  Google Maps provider, which needs a Google Maps SDK for Android key to
+  actually render tiles — not set up yet, deliberately deferred, so
+  Android's map stays blank until that key is added to `app.json`. New
+  behavior on every platform that does render: tapping/clicking a point
+  on the map pans there directly (native `MapView.onPress` /
+  `animateToRegion`, web Leaflet `click` → `panTo`) instead of only
+  dragging the whole map under a fixed center pin; an expand icon opens
+  the same map in a full-screen `Modal`; a target icon calls
+  `expo-location` (native) or the browser Geolocation API (web) to jump
+  straight to the device's current position and auto-run the landmark
+  lookup there.
 - **Fixed a "window is not defined" crash on web, introduced by the map
   change below** — then fixed the fix. `location-map.web.tsx` imported
   `leaflet` (and its CSS) at module scope; leaflet touches `window` the

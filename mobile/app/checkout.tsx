@@ -12,11 +12,14 @@ import {
 import { useAccount, useCart, useDeliveryLocation, useNotifications } from "@/store/app-store";
 import { useRouter } from "expo-router";
 import * as Linking from "expo-linking";
+import * as Location from "expo-location";
 import * as WebBrowser from "expo-web-browser";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Image,
+  Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -61,6 +64,12 @@ export default function CheckoutScreen() {
   );
   const [confirmingLocation, setConfirmingLocation] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [locatingDevice, setLocatingDevice] = useState(false);
+  const [fullscreenMap, setFullscreenMap] = useState(false);
+  // Bumped whenever the pin needs to jump somewhere (e.g. "use my
+  // location") — LocationMap only reads its initialRegion once per mount,
+  // so remounting is how an external move actually takes effect.
+  const [mapKey, setMapKey] = useState(0);
 
   // Default to the number they signed in with, without locking them to it:
   // only seed it while the field is still untouched.
@@ -95,26 +104,66 @@ export default function CheckoutScreen() {
   const complete = isCompletePhone(phone);
   const mismatch = payment === "momo" && detected !== null && detected !== network;
 
-  const handleConfirmLocation = async () => {
+  const confirmLocationAt = async (latitude: number, longitude: number) => {
     setConfirmingLocation(true);
     setLocationError(null);
     try {
       const { landmark, city } = await apiFetch(
-        `/places/nearby-landmark?lat=${region.latitude}&lng=${region.longitude}`,
+        `/places/nearby-landmark?lat=${latitude}&lng=${longitude}`,
       );
-      setDeliveryLocation({
-        label: landmark,
-        city,
-        landmark,
-        latitude: region.latitude,
-        longitude: region.longitude,
-      });
+      setDeliveryLocation({ label: landmark, city, landmark, latitude, longitude });
     } catch (error) {
       setLocationError(
         error instanceof Error ? error.message : "Couldn't look up that location.",
       );
     } finally {
       setConfirmingLocation(false);
+    }
+  };
+
+  const handleConfirmLocation = () => confirmLocationAt(region.latitude, region.longitude);
+
+  const handleUseCurrentLocation = async () => {
+    setLocatingDevice(true);
+    setLocationError(null);
+    try {
+      let latitude: number;
+      let longitude: number;
+
+      if (Platform.OS === "web") {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          if (!navigator.geolocation) {
+            reject(new Error("Location isn't supported in this browser."));
+            return;
+          }
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+          });
+        });
+        latitude = position.coords.latitude;
+        longitude = position.coords.longitude;
+      } else {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") {
+          throw new Error("Location permission was denied.");
+        }
+        const position = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        latitude = position.coords.latitude;
+        longitude = position.coords.longitude;
+      }
+
+      setRegion((prev) => ({ ...prev, latitude, longitude }));
+      setMapKey((k) => k + 1);
+      await confirmLocationAt(latitude, longitude);
+    } catch (error) {
+      setLocationError(
+        error instanceof Error ? error.message : "Couldn't get your location.",
+      );
+    } finally {
+      setLocatingDevice(false);
     }
   };
 
@@ -216,6 +265,71 @@ export default function CheckoutScreen() {
     }
   };
 
+  const renderLocationPicker = (fullscreen: boolean) => (
+    <>
+      <View style={fullscreen ? styles.mapAreaFullscreen : styles.mapArea}>
+        <LocationMap
+          key={mapKey}
+          initialRegion={region}
+          onRegionChangeComplete={(next) => {
+            setRegion(next);
+            setLocationError(null);
+          }}
+        />
+        {/* Fixed at the box's center; the map pans underneath it, and a
+            tap/click animates the map so the tapped spot ends up here. */}
+        <View pointerEvents="none" style={styles.centerPin}>
+          <Text style={styles.pinGlyph}>📍</Text>
+        </View>
+
+        <View style={styles.mapControls}>
+          <TouchableOpacity
+            style={styles.mapIconBtn}
+            onPress={handleUseCurrentLocation}
+            disabled={locatingDevice}
+            accessibilityLabel="Use my current location"
+          >
+            {locatingDevice ? (
+              <ActivityIndicator size="small" color="#111" />
+            ) : (
+              <Text style={styles.mapIconGlyph}>🎯</Text>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.mapIconBtn}
+            onPress={() => setFullscreenMap(!fullscreen)}
+            accessibilityLabel={fullscreen ? "Collapse map" : "Expand map to full screen"}
+          >
+            <Text style={styles.mapIconGlyph}>{fullscreen ? "✕" : "⤢"}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={styles.addressRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.addressTitle} numberOfLines={1}>
+            {deliveryLocation?.label ?? "Move, tap, or use current location"}
+          </Text>
+          <Text style={styles.addressSub}>
+            {deliveryLocation ? `${deliveryLocation.city} • GPS pin set` : "Then tap “Use this spot”"}
+          </Text>
+        </View>
+        <TouchableOpacity
+          style={styles.confirmLocationBtn}
+          onPress={handleConfirmLocation}
+          disabled={confirmingLocation}
+        >
+          {confirmingLocation ? (
+            <ActivityIndicator size="small" color="#FFF" />
+          ) : (
+            <Text style={styles.confirmLocationText}>Use this spot</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+      {locationError && <Text style={styles.locationErrorText}>{locationError}</Text>}
+    </>
+  );
+
   if (placing) return <LoadingScreen label="Placing your order" />;
 
   return (
@@ -237,44 +351,7 @@ export default function CheckoutScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <Text style={styles.sectionLabel}>Delivery location</Text>
-        <View style={styles.mapBox}>
-          <View style={styles.mapArea}>
-            <LocationMap
-              initialRegion={region}
-              onRegionChangeComplete={(next) => {
-                setRegion(next);
-                setLocationError(null);
-              }}
-            />
-            {/* Fixed at the box's center; the map pans underneath it. */}
-            <View pointerEvents="none" style={styles.centerPin}>
-              <Text style={styles.pinGlyph}>📍</Text>
-            </View>
-          </View>
-
-          <View style={styles.addressRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.addressTitle} numberOfLines={1}>
-                {deliveryLocation?.label ?? "Move the map to set your location"}
-              </Text>
-              <Text style={styles.addressSub}>
-                {deliveryLocation ? `${deliveryLocation.city} • GPS pin set` : "Then tap “Use this spot”"}
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={styles.confirmLocationBtn}
-              onPress={handleConfirmLocation}
-              disabled={confirmingLocation}
-            >
-              {confirmingLocation ? (
-                <ActivityIndicator size="small" color="#FFF" />
-              ) : (
-                <Text style={styles.confirmLocationText}>Use this spot</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-          {locationError && <Text style={styles.locationErrorText}>{locationError}</Text>}
-        </View>
+        <View style={styles.mapBox}>{renderLocationPicker(false)}</View>
 
         <View style={styles.landmarkBox}>
           <Text style={styles.landmarkText}>
@@ -432,6 +509,16 @@ export default function CheckoutScreen() {
           <Text style={styles.orderBtnText}>Place order • GHS {total}</Text>
         </TouchableOpacity>
       </View>
+
+      <Modal
+        visible={fullscreenMap}
+        animationType="slide"
+        onRequestClose={() => setFullscreenMap(false)}
+      >
+        <SafeAreaView style={styles.fullscreenMap} edges={["top", "bottom"]}>
+          {renderLocationPicker(true)}
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -466,6 +553,14 @@ const styles = StyleSheet.create({
     height: 200,
     backgroundColor: "#E5E7EB",
   },
+  mapAreaFullscreen: {
+    flex: 1,
+    backgroundColor: "#E5E7EB",
+  },
+  fullscreenMap: {
+    flex: 1,
+    backgroundColor: "#FFF",
+  },
   centerPin: {
     position: "absolute",
     top: "50%",
@@ -474,6 +569,25 @@ const styles = StyleSheet.create({
     marginTop: -28,
   },
   pinGlyph: { fontSize: 28 },
+  mapControls: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    gap: 8,
+  },
+  mapIconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#FFF",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  mapIconGlyph: { fontSize: 16 },
   addressRow: {
     flexDirection: "row",
     justifyContent: "space-between",

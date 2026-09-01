@@ -40,7 +40,13 @@
         }
       ],
       "expo-secure-store",
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Burger Yard uses your location to fill in your delivery spot at checkout."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

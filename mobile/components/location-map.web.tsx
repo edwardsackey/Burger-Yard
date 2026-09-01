@@ -77,6 +77,12 @@ export function LocationMap({ initialRegion, onRegionChangeComplete }: Props) {
     };
 
     map.on("moveend", emitRegion);
+    // Clicking a point directly, rather than dragging the map under the
+    // fixed center pin the screen renders — panTo keeps the current zoom
+    // and fires "moveend" itself once it settles, so emitRegion still runs.
+    map.on("click", (e: import("leaflet").LeafletMouseEvent) => {
+      map.panTo(e.latlng);
+    });
     mapRef.current = map;
 
     // The container can be zero-sized on the first paint (layout not
