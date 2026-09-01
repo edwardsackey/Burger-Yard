@@ -249,6 +249,16 @@ Log major backend changes here going forward — schema changes, new
 integrations, new endpoints, breaking changes to existing ones.
 
 ### 2026-09-01
+- **Removed the fake mock map on order-tracking** (a static grey box with
+  a decorative line and a red dot — never real, per the earlier "skip
+  live tracking for now" call) and expanded the status timeline to show
+  a real time next to each completed stage instead of just a dot. Added
+  `Order.outForDeliveryAt` (stamped by `updateOrderStatus`, same pattern
+  as `acceptedAt`/`readyAt`) so every stage now has a real timestamp:
+  `createdAt` → placed, `acceptedAt` → preparing, `readyAt` → ready,
+  `outForDeliveryAt` → out for delivery, `updatedAt` → delivered (accurate
+  since nothing else changes on an order after completion). Confirmed
+  live by advancing a test order through the whole flow.
 - **Checkout's map now works on all three platforms, plus tap-to-select,
   full-screen expand, and "use my location."** iOS uses Apple Maps (free,
   no key, already worked); Android uses `react-native-maps`'s default

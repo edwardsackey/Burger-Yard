@@ -37,6 +37,23 @@ const STATUS_TITLE: Record<string, string> = {
   CANCELLED: "Order cancelled",
 };
 
+// Which raw order field holds the moment each stage was actually reached —
+// lets the timeline show a real time instead of just a done/not-done dot.
+// COMPLETED has no dedicated column: updatedAt is accurate for it since
+// nothing else changes on an order after it's delivered.
+const STAGE_TIME_FIELD: Record<number, string> = {
+  0: "createdAt",
+  1: "acceptedAt",
+  2: "readyAt",
+  3: "outForDeliveryAt",
+  4: "updatedAt",
+};
+
+function formatStageTime(iso?: string | null): string {
+  if (!iso) return "";
+  return new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
 // Polling rather than a live push channel — good enough for a status that
 // only changes a handful of times over an order's life, without needing a
 // websocket/notification server.
@@ -78,20 +95,15 @@ export default function OrderTrackingScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.mapHeader}>
+      <View style={styles.header}>
         <TouchableOpacity style={styles.closeBtn} onPress={() => router.back()}>
           <Text style={styles.closeText}>✕</Text>
         </TouchableOpacity>
-      </View>
-
-      <View style={styles.mapArea}>
-        <View style={styles.mockRouteLine} />
-        <View style={styles.riderPin} />
+        <Text style={styles.headerTitle}>Track order</Text>
+        <View style={{ width: 36 }} />
       </View>
 
       <View style={styles.panel}>
-        <View style={styles.panelHandle} />
-
         {!order ? (
           <ActivityIndicator style={{ marginTop: 20 }} color="#D62828" />
         ) : (
@@ -112,22 +124,19 @@ export default function OrderTrackingScreen() {
 
             {!cancelled && (
               <View style={styles.timeline}>
-                {STAGES.map((label, i) => (
-                  <View key={label} style={styles.timelineRow}>
-                    <View
-                      style={[styles.dot, i <= (stageIndex ?? -1) && styles.dotDone]}
-                    />
-                    <Text
-                      style={
-                        i <= (stageIndex ?? -1)
-                          ? styles.timelineText
-                          : styles.timelineTextDim
-                      }
-                    >
-                      {label}
-                    </Text>
-                  </View>
-                ))}
+                {STAGES.map((label, i) => {
+                  const done = i <= (stageIndex ?? -1);
+                  const time = done ? formatStageTime(order[STAGE_TIME_FIELD[i]]) : "";
+                  return (
+                    <View key={label} style={styles.timelineRow}>
+                      <View style={[styles.dot, done && styles.dotDone]} />
+                      <Text style={done ? styles.timelineText : styles.timelineTextDim}>
+                        {label}
+                      </Text>
+                      {time ? <Text style={styles.timelineTime}>{time}</Text> : null}
+                    </View>
+                  );
+                })}
               </View>
             )}
 
@@ -173,8 +182,14 @@ export default function OrderTrackingScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#E5E7EB" },
-  mapHeader: { position: "absolute", top: 50, left: 20, zIndex: 10 },
+  container: { flex: 1, backgroundColor: "#F8F9FA" },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+  },
   closeBtn: {
     width: 36,
     height: 36,
@@ -187,45 +202,16 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   closeText: { fontSize: 16, fontWeight: "bold" },
-  mapArea: {
-    height: 280,
-    backgroundColor: "#EAEAEA",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  mockRouteLine: {
-    width: 150,
-    height: 4,
-    backgroundColor: "#D62828",
-    transform: [{ rotate: "45deg" }],
-  },
-  riderPin: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: "#D62828",
-    borderWidth: 3,
-    borderColor: "#FFF",
-    position: "absolute",
-  },
+  headerTitle: { fontSize: 16, fontWeight: "bold", color: "#111" },
   panel: {
     flex: 1,
     backgroundColor: "#FFF",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,
-    marginTop: -20,
     shadowColor: "#000",
     shadowOpacity: 0.1,
     elevation: 5,
-  },
-  panelHandle: {
-    width: 40,
-    height: 4,
-    backgroundColor: "#D1D5DB",
-    borderRadius: 2,
-    alignSelf: "center",
-    marginBottom: 15,
   },
   statusHeader: {
     flexDirection: "row",
@@ -236,12 +222,13 @@ const styles = StyleSheet.create({
   statusSub: { fontSize: 12, color: "#666" },
   statusTitle: { fontSize: 18, fontWeight: "bold", color: "#111" },
   orderId: { fontSize: 11, color: "#666" },
-  timeline: { marginBottom: 16, gap: 10 },
+  timeline: { marginBottom: 16, gap: 12 },
   timelineRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: "#D1D5DB" },
   dotDone: { backgroundColor: "#D62828" },
-  timelineText: { fontSize: 13, fontWeight: "600", color: "#111" },
-  timelineTextDim: { fontSize: 13, color: "#9CA3AF" },
+  timelineText: { flex: 1, fontSize: 13, fontWeight: "600", color: "#111" },
+  timelineTextDim: { flex: 1, fontSize: 13, color: "#9CA3AF" },
+  timelineTime: { fontSize: 11.5, color: "#888" },
   riderCard: {
     flexDirection: "row",
     alignItems: "center",

@@ -97,6 +97,7 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response): Promis
         // compute a real avg prep time (readyAt - acceptedAt).
         acceptedAt: status === 'PREPARING' ? new Date() : undefined,
         readyAt: status === 'READY' ? new Date() : undefined,
+        outForDeliveryAt: status === 'OUT_FOR_DELIVERY' ? new Date() : undefined,
       },
       omit: { deliveryCode: true },
       include: { user: { select: { pushToken: true } } },

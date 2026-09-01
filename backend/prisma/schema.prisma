@@ -147,6 +147,7 @@ model Order {
   // that never reached that stage, or placed before this field existed.
   acceptedAt    DateTime?
   readyAt       DateTime?
+  outForDeliveryAt DateTime?
   orderItems    OrderItem[]
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
