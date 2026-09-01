@@ -235,13 +235,9 @@ menu is now live-backed too — see Changelog. What's still mock or unbuilt:
   to the app stores
 - **No rider-facing interface exists yet.** The admin picks a rider from the
   saved roster (or adds a new one) and it's written onto the order via
-  `updateOrderStatus`, but there's no way for a rider to interact with the
-  system at all. Two features are blocked on this:
-  real-time rider location on the tracking map, and completing a delivery
-  by having the rider enter the customer's delivery code (currently the
-  code is generated and shown to the customer, but nothing ever verifies
-  it — there's no endpoint for it since there's no one to call it). Both
-  need at minimum a lightweight rider-facing page before they can be built.
+  `updateOrderStatus`. Delivery-code verification (see Changelog) closes
+  part of the gap this created, but real-time rider location on the
+  tracking map is still blocked on there being no rider-facing app at all.
 
 ## Changelog
 
@@ -249,6 +245,18 @@ Log major backend changes here going forward — schema changes, new
 integrations, new endpoints, breaking changes to existing ones.
 
 ### 2026-09-01
+- **The delivery code is now actually verified before an order can be
+  marked delivered.** `updateOrderStatus` rejects `OUT_FOR_DELIVERY →
+  COMPLETED` (400, "Incorrect delivery code.") unless the request's
+  `deliveryCode` matches the order's stored one — the code itself is
+  never sent back in the response or exposed on any admin-facing query,
+  preserving the existing invariant (the admin can *check* it, never
+  *see* it; whoever's at the door has to actually ask the customer for
+  it). The admin Orders screen shows a 4-digit input once an order is
+  "Out for delivery," blocks "Mark delivered" until 4 digits are entered,
+  and surfaces a wrong-code rejection inline. Confirmed live: wrong code
+  → 400, correct code → 200, delivery details still absent from the
+  response either way.
 - **Removed the fake mock map on order-tracking** (a static grey box with
   a decorative line and a red dot — never real, per the earlier "skip
   live tracking for now" call) and expanded the status timeline to show

@@ -209,6 +209,10 @@ export default function AdminOrdersScreen() {
 
   const [riderDraft, setRiderDraft] = useState({ name: "", phone: "", vehicle: "" });
   const [savingRider, setSavingRider] = useState(false);
+  // Never pre-filled from the order — deliveryCode is deliberately excluded
+  // from every admin-facing query, so this only ever holds what the admin
+  // just typed after asking the customer for it.
+  const [deliveryCodeInput, setDeliveryCodeInput] = useState("");
 
   // Re-seed the draft only when the *selected order* changes, not on every
   // poll refresh — otherwise an admin mid-typing gets overwritten every 8s.
@@ -219,6 +223,7 @@ export default function AdminOrdersScreen() {
         phone: current.riderPhone,
         vehicle: current.riderVehicle,
       });
+      setDeliveryCodeInput("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current?.id]);
@@ -269,7 +274,7 @@ export default function AdminOrdersScreen() {
     }
   };
 
-  const pushStatus = async (id: string, backendStatus: string) => {
+  const pushStatus = async (id: string, backendStatus: string, extra?: Record<string, unknown>) => {
     if (busyIds.current.has(id)) return;
     busyIds.current.add(id);
     setPendingIds((prev) => new Set(prev).add(id));
@@ -277,13 +282,19 @@ export default function AdminOrdersScreen() {
       const numericId = id.replace("#", "");
       await apiFetch(`/admin/orders/${numericId}/status`, {
         method: "PUT",
-        body: JSON.stringify({ status: backendStatus }),
+        body: JSON.stringify({ status: backendStatus, ...extra }),
       });
       setOrders((prev) =>
         prev.map((o) => (o.id === id ? { ...o, status: STATUS_TO_DISPLAY[backendStatus] } : o)),
       );
-    } catch {
-      // Left as-is — the next poll reconciles with the server's real state.
+      if (backendStatus === "COMPLETED") setDeliveryCodeInput("");
+    } catch (error) {
+      // A real rejection (e.g. wrong delivery code) needs to reach the
+      // admin, not just silently leave the order as-is.
+      notify({
+        title: "Couldn't update status",
+        message: error instanceof Error ? error.message : "Please try again.",
+      });
     } finally {
       busyIds.current.delete(id);
       // Keep the button disabled a little longer than the request itself —
@@ -312,6 +323,17 @@ export default function AdminOrdersScreen() {
       });
       return;
     }
+    if (nextStatus === "COMPLETED") {
+      if (!/^\d{4}$/.test(deliveryCodeInput.trim())) {
+        notify({
+          title: "Enter the delivery code",
+          message: "Ask the customer for their 4-digit delivery code before marking this delivered.",
+        });
+        return;
+      }
+      pushStatus(id, nextStatus, { deliveryCode: deliveryCodeInput.trim() });
+      return;
+    }
     pushStatus(id, nextStatus);
   };
 
@@ -334,6 +356,8 @@ export default function AdminOrdersScreen() {
 
   const action = nextAction(current?.status ?? "Completed");
   const needsRiderToSendOut = current?.status === "Ready" && !current.riderName;
+  const needsDeliveryCode =
+    current?.status === "Out for delivery" && !/^\d{4}$/.test(deliveryCodeInput.trim());
 
   const renderDetail = () => (
     <Card style={styles.detailCard}>
@@ -484,6 +508,26 @@ export default function AdminOrdersScreen() {
         </>
       )}
 
+      {current.status === "Out for delivery" && (
+        <>
+          <View style={styles.divider} />
+          <Text style={styles.blockLabel}>DELIVERY CODE</Text>
+          <Text style={styles.riderHint}>
+            Ask the customer for their 4-digit code to confirm the handoff —
+            it's never shown here, only checked.
+          </Text>
+          <TextInput
+            style={styles.deliveryCodeField}
+            placeholder="• • • •"
+            placeholderTextColor={Admin.textFaint}
+            keyboardType="number-pad"
+            maxLength={4}
+            value={deliveryCodeInput}
+            onChangeText={(t) => setDeliveryCodeInput(t.replace(/\D/g, ""))}
+          />
+        </>
+      )}
+
       <View style={styles.actionRow}>
         {current.status === "New" && (
           <Button label="Decline" variant="danger" icon="x"
@@ -492,7 +536,7 @@ export default function AdminOrdersScreen() {
         )}
         {action ? (
           <Button label={action.label} icon={action.icon}
-            disabled={pendingIds.has(current.id) || needsRiderToSendOut}
+            disabled={pendingIds.has(current.id) || needsRiderToSendOut || needsDeliveryCode}
             onPress={() => advance(current.id)} style={{ flex: 1 }} />
         ) : (
           <View style={styles.closedNote}>
@@ -506,6 +550,11 @@ export default function AdminOrdersScreen() {
       {needsRiderToSendOut && (
         <Text style={styles.riderRequiredHint}>
           Assign a rider above before sending this order out.
+        </Text>
+      )}
+      {needsDeliveryCode && (
+        <Text style={styles.riderRequiredHint}>
+          Enter the customer's 4-digit delivery code above to mark this delivered.
         </Text>
       )}
     </Card>
@@ -788,6 +837,11 @@ const styles = StyleSheet.create({
   address: { fontSize: 12.5, color: Admin.text, lineHeight: 18 },
   contactRow: { flexDirection: "row", gap: 9, marginTop: 12 },
   riderHint: { fontSize: 11.5, color: Admin.textMuted, marginTop: -4, marginBottom: 10 },
+  deliveryCodeField: {
+    height: 44, borderRadius: 10, borderWidth: 1, borderColor: Admin.border,
+    backgroundColor: Admin.surface, paddingHorizontal: 14, fontSize: 16,
+    fontWeight: "700", letterSpacing: 6, color: Admin.text, width: 120,
+  },
   riderChips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   riderChip: {
     paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10,

@@ -72,7 +72,7 @@ export const getCustomers = async (req: AuthRequest, res: Response): Promise<voi
 export const updateOrderStatus = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const orderId = parseInt(req.params.id);
-    const { status, riderName, riderPhone, riderVehicle } = req.body;
+    const { status, riderName, riderPhone, riderVehicle, deliveryCode } = req.body;
     // status should be one of: NEW, PREPARING, READY, OUT_FOR_DELIVERY, COMPLETED, CANCELLED
 
     if (status === 'OUT_FOR_DELIVERY') {
@@ -82,6 +82,23 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response): Promis
       });
       if (!(riderName || existing?.riderName)) {
         res.status(400).json({ message: 'Assign a rider before sending this order out for delivery.' });
+        return;
+      }
+    }
+
+    // Never trust the client's word that delivery happened — the code is
+    // deliberately never sent to the admin (see the Order.deliveryCode
+    // comment), so this is the only way to confirm the handoff actually
+    // happened: whoever is at the door reads it from the customer and the
+    // admin types it in, checked here against the value nobody on this
+    // side of the request can see.
+    if (status === 'COMPLETED') {
+      const existing = await prisma.order.findUnique({
+        where: { id: orderId },
+        select: { deliveryCode: true },
+      });
+      if (!existing?.deliveryCode || deliveryCode !== existing.deliveryCode) {
+        res.status(400).json({ message: 'Incorrect delivery code.' });
         return;
       }
     }
