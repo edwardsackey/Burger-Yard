@@ -1,5 +1,7 @@
-import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+import React, { useEffect, useRef } from "react";
+import { StyleSheet, View } from "react-native";
 
 export type Region = {
   latitude: number;
@@ -14,36 +16,63 @@ type Props = {
 };
 
 /**
- * react-native-maps has no web renderer, so the web preview shows a
- * placeholder and confirms with the default region instead of a live pin.
+ * react-native-maps has no web renderer, so web gets its own real map here —
+ * Leaflet against public OpenStreetMap tiles, free and keyless. Reports the
+ * same Region shape the native MapView does, so the screens that use this
+ * don't need to know which platform they're on.
  */
-export function LocationMap({ initialRegion }: Props) {
-  return (
-    <View style={[StyleSheet.absoluteFillObject, styles.placeholder]}>
-      <Text style={styles.emoji}>🗺️</Text>
-      <Text style={styles.title}>Map preview isn't available on web</Text>
-      <Text style={styles.subtitle}>
-        Open this screen on a phone with Expo Go to drag the map and pin an
-        exact spot. Confirming here will use the default location.
-      </Text>
-    </View>
-  );
+export function LocationMap({ initialRegion, onRegionChangeComplete }: Props) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  // Avoids re-subscribing the Leaflet event on every parent re-render —
+  // the map itself is only ever created once (see the empty dep array below).
+  const onChangeRef = useRef(onRegionChangeComplete);
+  onChangeRef.current = onRegionChangeComplete;
+
+  useEffect(() => {
+    if (!containerRef.current || mapRef.current) return;
+
+    const map = L.map(containerRef.current, {
+      center: [initialRegion.latitude, initialRegion.longitude],
+      zoom: 16,
+    });
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "© OpenStreetMap contributors",
+    }).addTo(map);
+
+    const emitRegion = () => {
+      const center = map.getCenter();
+      const bounds = map.getBounds();
+      onChangeRef.current({
+        latitude: center.lat,
+        longitude: center.lng,
+        latitudeDelta: bounds.getNorth() - bounds.getSouth(),
+        longitudeDelta: bounds.getEast() - bounds.getWest(),
+      });
+    };
+
+    map.on("moveend", emitRegion);
+    mapRef.current = map;
+
+    // The container can be zero-sized on the first paint (layout not
+    // settled yet) — Leaflet then renders the tiles at the wrong size.
+    const resizeTimer = setTimeout(() => map.invalidateSize(), 150);
+
+    return () => {
+      clearTimeout(resizeTimer);
+      map.remove();
+      mapRef.current = null;
+    };
+    // Deliberately empty — the map is created once; panning to a new
+    // initialRegion after mount isn't a supported case here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return <View ref={containerRef as never} style={styles.container} />;
 }
 
 const styles = StyleSheet.create({
-  placeholder: {
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#F3F4F6",
-    padding: 24,
-  },
-  emoji: { fontSize: 40, marginBottom: 12 },
-  title: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#111",
-    marginBottom: 6,
-    textAlign: "center",
-  },
-  subtitle: { fontSize: 12.5, color: "#666", textAlign: "center", lineHeight: 18 },
+  container: { flex: 1 },
 });

@@ -241,6 +241,29 @@ menu is now live-backed too — see Changelog. What's still mock or unbuilt:
 Log major backend changes here going forward — schema changes, new
 integrations, new endpoints, breaking changes to existing ones.
 
+### 2026-09-01
+- **Checkout now has a real, working map embedded directly on the page**
+  (previously a static grey placeholder box with "Change" linking out to
+  a separate screen — that screen, `select-location.tsx`, is now removed
+  since it's fully replaced by the inline version). Dragging the map and
+  tapping "Use this spot" looks up a real landmark and sets it directly.
+- **The landmark lookup is now genuinely real on both platforms, for
+  free.** `GOOGLE_PLACES_API_KEY` has been empty this whole time, so
+  `getNearbyLandmark` was silently returning a fake `"Pinned location
+  (lat, lng)"` placeholder for every single request — this was never
+  caught because it "worked" (returned *something*). It now falls back to
+  free OpenStreetMap Nominatim reverse geocoding when no Google key is
+  set, no account/billing needed. Confirmed live: real results like
+  "Adiebeba, Kumasi" and "Patrice Lumumba Road, Accra" instead of the
+  placeholder. Google is still used automatically once a real
+  `GOOGLE_PLACES_API_KEY` is set — this only changes the no-key fallback.
+- **Added a real web map.** `react-native-maps` (used on native, via
+  `location-map.native.tsx`) has no web renderer at all — the web version
+  of that component was just a "not available on web" placeholder. It now
+  uses Leaflet against public OpenStreetMap tiles (new `leaflet` +
+  `@types/leaflet` deps) — free, keyless, and it's what checkout's inline
+  map actually renders in a browser now.
+
 ### 2026-08-30
 - **An order can no longer be sent out without a rider assigned.**
   `updateOrderStatus` rejects a `READY → OUT_FOR_DELIVERY` transition

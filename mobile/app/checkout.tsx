@@ -1,5 +1,6 @@
 import { apiFetch } from "@/api";
 import { LoadingScreen } from "@/components/loading-screen";
+import { LocationMap, Region } from "@/components/location-map";
 import { EXTRAS_PRICES } from "@/constants/catalog";
 import {
   NETWORKS,
@@ -14,6 +15,7 @@ import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   ScrollView,
   StyleSheet,
@@ -23,6 +25,14 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+// Roughly central Kumasi — a reasonable default until the customer moves the pin.
+const DEFAULT_REGION: Region = {
+  latitude: 6.6666,
+  longitude: -1.6163,
+  latitudeDelta: 0.01,
+  longitudeDelta: 0.01,
+};
 
 // Message plus one optional action button — replaces Alert.alert, which is
 // unreliable on react-native-web (some versions no-op instead of showing
@@ -40,6 +50,17 @@ export default function CheckoutScreen() {
   const [prompt, setPrompt] = useState<Prompt | null>(null);
   const { lines, deliveryFee, total, clear } = useCart();
   const { notify } = useNotifications();
+
+  // The map picker, embedded directly on this screen rather than a separate
+  // one — starts centered on whatever's already picked this session, or the
+  // default area if nothing's been pinned yet.
+  const [region, setRegion] = useState<Region>(
+    deliveryLocation?.latitude
+      ? { ...DEFAULT_REGION, latitude: deliveryLocation.latitude, longitude: deliveryLocation.longitude }
+      : DEFAULT_REGION,
+  );
+  const [confirmingLocation, setConfirmingLocation] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
   // Default to the number they signed in with, without locking them to it:
   // only seed it while the field is still untouched.
@@ -73,6 +94,29 @@ export default function CheckoutScreen() {
   const detected = detectNetwork(phone);
   const complete = isCompletePhone(phone);
   const mismatch = payment === "momo" && detected !== null && detected !== network;
+
+  const handleConfirmLocation = async () => {
+    setConfirmingLocation(true);
+    setLocationError(null);
+    try {
+      const { landmark, city } = await apiFetch(
+        `/places/nearby-landmark?lat=${region.latitude}&lng=${region.longitude}`,
+      );
+      setDeliveryLocation({
+        label: landmark,
+        city,
+        landmark,
+        latitude: region.latitude,
+        longitude: region.longitude,
+      });
+    } catch (error) {
+      setLocationError(
+        error instanceof Error ? error.message : "Couldn't look up that location.",
+      );
+    } finally {
+      setConfirmingLocation(false);
+    }
+  };
 
   const handlePlaceOrder = async () => {
     setPrompt(null);
@@ -194,22 +238,42 @@ export default function CheckoutScreen() {
       >
         <Text style={styles.sectionLabel}>Delivery location</Text>
         <View style={styles.mapBox}>
-          <View style={styles.mockMap}>
-            <View style={styles.mapPin} />
+          <View style={styles.mapArea}>
+            <LocationMap
+              initialRegion={region}
+              onRegionChangeComplete={(next) => {
+                setRegion(next);
+                setLocationError(null);
+              }}
+            />
+            {/* Fixed at the box's center; the map pans underneath it. */}
+            <View pointerEvents="none" style={styles.centerPin}>
+              <Text style={styles.pinGlyph}>📍</Text>
+            </View>
           </View>
+
           <View style={styles.addressRow}>
-            <View>
-              <Text style={styles.addressTitle}>
-                {deliveryLocation?.label ?? "Select a location"}
+            <View style={{ flex: 1 }}>
+              <Text style={styles.addressTitle} numberOfLines={1}>
+                {deliveryLocation?.label ?? "Move the map to set your location"}
               </Text>
               <Text style={styles.addressSub}>
-                {deliveryLocation ? `${deliveryLocation.city} • GPS pin set` : "No address set"}
+                {deliveryLocation ? `${deliveryLocation.city} • GPS pin set` : "Then tap “Use this spot”"}
               </Text>
             </View>
-            <TouchableOpacity onPress={() => router.push("/select-location")}>
-              <Text style={styles.changeText}>Change</Text>
+            <TouchableOpacity
+              style={styles.confirmLocationBtn}
+              onPress={handleConfirmLocation}
+              disabled={confirmingLocation}
+            >
+              {confirmingLocation ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <Text style={styles.confirmLocationText}>Use this spot</Text>
+              )}
             </TouchableOpacity>
           </View>
+          {locationError && <Text style={styles.locationErrorText}>{locationError}</Text>}
         </View>
 
         <View style={styles.landmarkBox}>
@@ -398,29 +462,42 @@ const styles = StyleSheet.create({
     borderColor: "#E5E7EB",
     marginBottom: 12,
   },
-  mockMap: {
-    height: 100,
+  mapArea: {
+    height: 200,
     backgroundColor: "#E5E7EB",
-    justifyContent: "center",
-    alignItems: "center",
   },
-  mapPin: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: "#D62828",
-    borderWidth: 2,
-    borderColor: "#FFF",
+  centerPin: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    marginLeft: -14,
+    marginTop: -28,
   },
+  pinGlyph: { fontSize: 28 },
   addressRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     padding: 14,
+    gap: 10,
   },
   addressTitle: { fontSize: 14, fontWeight: "bold", color: "#111" },
   addressSub: { fontSize: 11, color: "#666", marginTop: 2 },
-  changeText: { fontSize: 13, fontWeight: "bold", color: "#D62828" },
+  confirmLocationBtn: {
+    backgroundColor: "#D62828",
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 20,
+    minWidth: 92,
+    alignItems: "center",
+  },
+  confirmLocationText: { fontSize: 12.5, fontWeight: "bold", color: "#FFF" },
+  locationErrorText: {
+    fontSize: 11.5,
+    color: "#D62828",
+    paddingHorizontal: 14,
+    paddingBottom: 12,
+  },
   landmarkBox: {
     backgroundColor: "#FFF",
     padding: 14,

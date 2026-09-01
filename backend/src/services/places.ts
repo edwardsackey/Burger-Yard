@@ -11,11 +11,7 @@ export type NearbyLandmark = {
  */
 export async function getNearbyLandmark(lat: number, lng: number): Promise<NearbyLandmark> {
   if (!apiKey) {
-    console.log(`\n\n📍 PLACES SIMULATION (no GOOGLE_PLACES_API_KEY set): lookup for ${lat}, ${lng}\n\n`);
-    return {
-      landmark: `Pinned location (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
-      city: 'Unknown area',
-    };
+    return getNearbyLandmarkFromOsm(lat, lng);
   }
 
   const [placesRes, geocodeRes] = await Promise.all([
@@ -50,4 +46,44 @@ export async function getNearbyLandmark(lat: number, lng: number): Promise<Nearb
     landmark: nearestPlace ?? 'Near the pinned location',
     city,
   };
+}
+
+/**
+ * Free fallback — no key/account/billing needed. OpenStreetMap's Nominatim
+ * has no "nearest notable place" search like Google Places, so the nearest
+ * named feature from reverse geocoding (amenity/shop/building/road) stands
+ * in for "landmark". Good enough for dev/testing; Google is still what
+ * production should run on (set GOOGLE_PLACES_API_KEY to use it).
+ */
+async function getNearbyLandmarkFromOsm(lat: number, lng: number): Promise<NearbyLandmark> {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+      // Nominatim's usage policy requires an identifying User-Agent for
+      // unauthenticated requests — no API key, but this is still required.
+      { headers: { 'User-Agent': 'BurgerYard-Dev/1.0' } },
+    );
+    if (!res.ok) throw new Error(`Nominatim returned ${res.status}`);
+    const data = await res.json();
+    const address = data.address ?? {};
+
+    const landmark =
+      data.name ||
+      address.amenity ||
+      address.shop ||
+      address.building ||
+      address.road ||
+      data.display_name?.split(',')[0] ||
+      `Pinned location (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+
+    const city = address.city || address.town || address.village || address.county || 'Unknown area';
+
+    return { landmark, city };
+  } catch (error) {
+    console.error('OSM landmark lookup failed:', error);
+    return {
+      landmark: `Pinned location (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
+      city: 'Unknown area',
+    };
+  }
 }

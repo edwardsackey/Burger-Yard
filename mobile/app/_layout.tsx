@@ -25,7 +25,6 @@ export default function RootLayout() {
             <Stack.Screen name="search-favorites" />
             <Stack.Screen name="help-support" />
             <Stack.Screen name="saved-addresses" />
-            <Stack.Screen name="select-location" />
             <Stack.Screen name="payment-callback" />
             <Stack.Screen name="payment-methods" />
             <Stack.Screen name="card-details" />
