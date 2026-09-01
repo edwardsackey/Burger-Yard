@@ -216,10 +216,13 @@ menu is now live-backed too — see Changelog. What's still mock or unbuilt:
 - Real image **upload** — the menu form takes a photo URL (paste-in), not
   a file picker/cloud storage upload. Good enough for now, but a real
   admin will more often have a photo on their phone than a hosted URL
-- **Android's checkout map is blank** until a Google Maps SDK for Android
-  key is added to `app.json` (`android.config.googleMaps.apiKey`) —
-  `react-native-maps` requires it to render on Android at all (iOS needs
-  nothing; it uses Apple Maps). Deliberately deferred, not forgotten.
+- A Google Maps SDK for Android key is now set in `app.json`
+  (`android.config.googleMaps.apiKey`), but **it has no effect in Expo
+  Go** — Expo Go is a fixed, pre-built shell shared by every Expo project
+  and can't inject a project's own native config into its manifest at
+  runtime. Only a real native build (`eas build`, or `expo prebuild` +
+  local build) actually reads this. Android's map stays blank under Expo
+  Go regardless of this key until such a build exists.
 - Admin Payments page, backed by real transaction data. `Paid`/`Pending` are
   straightforward from `Order.paid`, but the mock's `Failed`/`Refunded`
   states have no real backing yet — nothing currently records a failed
