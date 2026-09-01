@@ -13,15 +13,33 @@ type Props = {
   onRegionChangeComplete: (region: Region) => void;
 };
 
+let cssInjected = false;
+
+/** Metro's web CSS support injects a <style> tag as a side effect of
+ * requiring a .css file — calling this lazily, instead of a static
+ * top-level `import "leaflet/dist/leaflet.css"`, defers that injection
+ * until a real browser actually mounts this component. */
+function injectLeafletCss() {
+  if (cssInjected) return;
+  cssInjected = true;
+  require("leaflet/dist/leaflet.css");
+}
+
 /**
  * react-native-maps has no web renderer, so web gets its own real map here —
- * Leaflet against public OpenStreetMap tiles, free and keyless. Both leaflet
- * itself and its CSS are imported dynamically inside useEffect rather than
- * at module scope: leaflet touches `window` the instant it's imported, and
- * Expo Router's static web build pre-renders every route in Node (no
- * `window`) before the browser ever sees it — a top-level import crashes
- * that pass immediately. useEffect never runs during that server pass, so
- * the dynamic import inside it only ever executes in an actual browser.
+ * Leaflet against public OpenStreetMap tiles, free and keyless.
+ *
+ * `leaflet` is `require()`'d lazily inside useEffect rather than statically
+ * imported at module scope, for two reasons:
+ *  1. leaflet touches `window` the instant it's evaluated, but Expo Router's
+ *     static web build pre-renders every route in Node first (no `window`)
+ *     — a top-level import crashes that pass immediately.
+ *  2. A dynamic `import()` here (the more usual fix for #1) hit a Metro
+ *     "Requiring unknown module" error in this project's web setup — Metro's
+ *     async-chunk machinery, not a stale cache. A synchronous `require()`
+ *     stays in the main bundle (no async chunk at all) while still only
+ *     *executing* when useEffect calls it — after mount, browser-only,
+ *     never during the Node prerender.
  */
 export function LocationMap({ initialRegion, onRegionChangeComplete }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -32,48 +50,43 @@ export function LocationMap({ initialRegion, onRegionChangeComplete }: Props) {
   onChangeRef.current = onRegionChangeComplete;
 
   useEffect(() => {
-    let cancelled = false;
+    if (!containerRef.current || mapRef.current) return;
 
-    (async () => {
-      await import("leaflet/dist/leaflet.css");
-      const L = (await import("leaflet")).default;
-      if (cancelled || !containerRef.current || mapRef.current) return;
+    injectLeafletCss();
+    const L = require("leaflet") as typeof import("leaflet");
 
-      const map = L.map(containerRef.current, {
-        center: [initialRegion.latitude, initialRegion.longitude],
-        zoom: 16,
+    const map = L.map(containerRef.current, {
+      center: [initialRegion.latitude, initialRegion.longitude],
+      zoom: 16,
+    });
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "© OpenStreetMap contributors",
+    }).addTo(map);
+
+    const emitRegion = () => {
+      const center = map.getCenter();
+      const bounds = map.getBounds();
+      onChangeRef.current({
+        latitude: center.lat,
+        longitude: center.lng,
+        latitudeDelta: bounds.getNorth() - bounds.getSouth(),
+        longitudeDelta: bounds.getEast() - bounds.getWest(),
       });
+    };
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19,
-        attribution: "© OpenStreetMap contributors",
-      }).addTo(map);
+    map.on("moveend", emitRegion);
+    mapRef.current = map;
 
-      const emitRegion = () => {
-        const center = map.getCenter();
-        const bounds = map.getBounds();
-        onChangeRef.current({
-          latitude: center.lat,
-          longitude: center.lng,
-          latitudeDelta: bounds.getNorth() - bounds.getSouth(),
-          longitudeDelta: bounds.getEast() - bounds.getWest(),
-        });
-      };
-
-      map.on("moveend", emitRegion);
-      mapRef.current = map;
-
-      // The container can be zero-sized on the first paint (layout not
-      // settled yet) — Leaflet then renders the tiles at the wrong size.
-      setTimeout(() => map.invalidateSize(), 150);
-    })();
+    // The container can be zero-sized on the first paint (layout not
+    // settled yet) — Leaflet then renders the tiles at the wrong size.
+    const resizeTimer = setTimeout(() => map.invalidateSize(), 150);
 
     return () => {
-      cancelled = true;
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
+      clearTimeout(resizeTimer);
+      map.remove();
+      mapRef.current = null;
     };
     // Deliberately empty — the map is created once; panning to a new
     // initialRegion after mount isn't a supported case here.

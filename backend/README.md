@@ -243,14 +243,18 @@ integrations, new endpoints, breaking changes to existing ones.
 
 ### 2026-09-01
 - **Fixed a "window is not defined" crash on web, introduced by the map
-  change below.** `location-map.web.tsx` imported `leaflet` (and its CSS)
-  at module scope — leaflet touches `window` the instant it's imported,
-  but Expo Router's static web build pre-renders every route in Node
-  first (no `window`), so that top-level import crashed the checkout
-  route immediately. Fixed by moving both imports to dynamic `import()`
-  calls inside `useEffect`, which never runs during that server pass —
-  confirmed by hitting `/checkout` directly against the dev server, 200
-  with no error, where it previously crashed.
+  change below** — then fixed the fix. `location-map.web.tsx` imported
+  `leaflet` (and its CSS) at module scope; leaflet touches `window` the
+  instant it's imported, but Expo Router's static web build pre-renders
+  every route in Node first (no `window`), so that crashed `/checkout`
+  immediately. First attempt moved both imports to dynamic `import()`
+  inside `useEffect` (which never runs during that server pass) — this
+  fixed the crash but caused a separate "Requiring unknown module" error
+  from Metro's async-chunk machinery in this project's web setup.
+  Replaced with a synchronous `require()` call inside the same
+  `useEffect` instead: it stays in the main bundle (no async chunk at
+  all), while still only *executing* after mount in a real browser.
+  Confirmed clean by hitting `/checkout` directly against the dev server.
 - **Checkout now has a real, working map embedded directly on the page**
   (previously a static grey placeholder box with "Change" linking out to
   a separate screen — that screen, `select-location.tsx`, is now removed
