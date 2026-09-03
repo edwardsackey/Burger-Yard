@@ -137,6 +137,14 @@ model Order {
   riderName     String?
   riderPhone    String?
   riderVehicle  String?
+  // Set the moment a staff member accepts this order (status -> PREPARING).
+  // Powers each staff member's own "orders received" count, separate from
+  // the owner's company-wide total. Name is denormalized, same reasoning as
+  // riderName above — stays readable even if that Staff row is later
+  // removed. Null for orders the owner accepted directly, or placed before
+  // this field existed.
+  handledByStaffId   Int?
+  handledByStaffName String?
   // Generated at order placement, shown only to the customer. Never expose
   // this on any admin-facing query — it's how the customer proves receipt
   // to the rider, so the admin console must not be able to see or leak it.

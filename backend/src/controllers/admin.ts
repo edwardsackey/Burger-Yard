@@ -218,11 +218,24 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response): Promis
       if (existing.paymentMethod === 'CASH') cashCollectedOnDelivery = true;
     }
 
+    // Attributes this order to whichever staff member accepted it — powers
+    // each staff member's own "orders received" count, kept separate from
+    // the owner's company-wide total. An owner accepting an order directly
+    // leaves this unset, same as before this field existed.
+    let handledByStaff: { id: number; name: string } | undefined;
+    if (status === 'PREPARING' && req.user?.role === 'STAFF') {
+      const staff = await prisma.staff.findUnique({ where: { id: req.user.id }, select: { name: true } });
+      if (staff) handledByStaff = { id: req.user.id, name: staff.name };
+    }
+
     const order = await prisma.order.update({
       where: { id: orderId },
       data: {
         status,
         ...(cashCollectedOnDelivery ? { paid: true } : {}),
+        ...(handledByStaff
+          ? { handledByStaffId: handledByStaff.id, handledByStaffName: handledByStaff.name }
+          : {}),
         riderName: riderName ?? undefined,
         riderPhone: riderPhone ?? undefined,
         riderVehicle: riderVehicle ?? undefined,

@@ -10,6 +10,7 @@ import {
 import { ExportButton } from "@/components/admin/export-menu";
 import { Button, FadeIn } from "@/components/admin/ui";
 import { Admin } from "@/constants/admin-theme";
+import { useAdminSession } from "@/context/AdminSession";
 import { useResponsive } from "@/hooks/use-responsive";
 import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -42,6 +43,8 @@ function formatLastOrder(iso: string | null): string {
 
 export default function AdminCustomersScreen() {
   const { isPhone } = useResponsive();
+  const { user } = useAdminSession();
+  const isOwner = user?.role === "owner";
   const [filter, setFilter] = useState("All");
   const [query, setQuery] = useState("");
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -148,7 +151,11 @@ export default function AdminCustomersScreen() {
       >
         <PageHeader
           title="Customers"
-          subtitle={`${customers.length} registered · ${repeatRate}% repeat rate`}
+          subtitle={
+            isOwner
+              ? `${customers.length} registered · ${repeatRate}% repeat rate`
+              : `${repeatRate}% repeat rate`
+          }
         >
           <SearchBox
             value={query}
@@ -160,7 +167,9 @@ export default function AdminCustomersScreen() {
 
         <StatRow
           stats={[
-            { label: "Total customers", value: String(customers.length), hint: "All time", icon: "users" },
+            ...(isOwner
+              ? [{ label: "Total customers", value: String(customers.length), hint: "All time", icon: "users" as const }]
+              : []),
             { label: "Repeat rate", value: `${repeatRate}%`, hint: "10+ orders", icon: "repeat" },
             { label: "Average value", value: `GHS ${avgValue}`, hint: "Lifetime per customer", icon: "trending-up" },
           ]}

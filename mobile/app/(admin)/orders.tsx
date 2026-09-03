@@ -68,6 +68,7 @@ type Order = {
   riderName: string;
   riderPhone: string;
   riderVehicle: string;
+  handledByStaffId: number | null;
 };
 
 /** "just now" / "N min ago" / "N hr ago" / "N days ago". */
@@ -114,6 +115,7 @@ function mapOrder(o: any): Order {
     riderName: o.riderName ?? "",
     riderPhone: o.riderPhone ?? "",
     riderVehicle: o.riderVehicle ?? "",
+    handledByStaffId: o.handledByStaffId ?? null,
   };
 }
 
@@ -135,7 +137,7 @@ export default function AdminOrdersScreen() {
   const { isPhone, isDesktop } = useResponsive();
   const { confirm, notify } = useDialog();
   const { orderId: orderIdParam } = useLocalSearchParams<{ orderId?: string }>();
-  const { riders, loadRiders, addRider } = useAdminSession();
+  const { user, riders, loadRiders, addRider } = useAdminSession();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState("All");
@@ -196,6 +198,13 @@ export default function AdminOrdersScreen() {
     });
     return map;
   }, [orders]);
+
+  // Staff see their own count of orders they've accepted, not the
+  // company-wide total — that stays visible to the owner only.
+  const myReceivedCount = useMemo(
+    () => orders.filter((o) => o.handledByStaffId === user?.staffId).length,
+    [orders, user?.staffId],
+  );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -576,7 +585,11 @@ export default function AdminOrdersScreen() {
                 <View style={{ flex: 1, minWidth: 200 }}>
                   <Text style={styles.headerTitle}>Orders</Text>
                   <Text style={styles.headerSub}>
-                    {counts.New ?? 0} new · {orders.length} total · live updating
+                    {counts.New ?? 0} new ·{" "}
+                    {user?.role === "staff"
+                      ? `${myReceivedCount} received by you`
+                      : `${orders.length} total`}{" "}
+                    · live updating
                   </Text>
                 </View>
                 <View style={[styles.controls, !isDesktop && styles.controlsWrap]}>

@@ -194,7 +194,7 @@ unused multi-tenant complexity:
 | `GET /api/payments/verify/:reference` | Authoritative payment status check (see above) |
 | `POST /api/payments/webhook` | Paystack webhook (production path) |
 | `GET /api/places/nearby-landmark` | Map-tap → landmark + city lookup |
-| `GET /api/admin/orders`, `PUT /api/admin/orders/:id/status` | Staff-or-owner. `getAllOrders` and the status update both `omit` `deliveryCode`. A MoMo/Card order only appears here once Paystack has actually confirmed it (`paymentMethod = CASH OR paid = true`) — see Changelog. A status update sends the customer a real Expo push notification (see below) |
+| `GET /api/admin/orders`, `PUT /api/admin/orders/:id/status` | Staff-or-owner. `getAllOrders` and the status update both `omit` `deliveryCode`. A MoMo/Card order only appears here once Paystack has actually confirmed it (`paymentMethod = CASH OR paid = true`) — see Changelog. A status update sends the customer a real Expo push notification (see below). Accepting an order (`NEW → PREPARING`) as staff stamps `handledByStaffId`/`handledByStaffName`, powering each staff member's own "orders received" count |
 | `GET/POST/PUT/DELETE /api/admin/menu` | Staff-or-owner. `GET` returns every item (including hidden ones) with a real "sold in the last 7 days" count computed from `OrderItem`. `DELETE` hard-deletes only if the item has zero past orders — otherwise it falls back to hiding it (`available: false`) and tells the frontend so, since hard-deleting would break the receipt on those past orders |
 | `POST /api/admin/uploads/image` | Staff-or-owner. Multipart image upload (field `image`, ≤5MB, JPEG/PNG/WEBP/GIF only) for the menu photo picker — saves to `backend/uploads/` and returns `{ url }`, built from the request's own host so it resolves correctly through a cloudflared tunnel too. Served back via `express.static` at `/uploads/*` |
 | `PUT /api/auth/push-token` | Authenticated customer. Saves the device's Expo push token onto `User.pushToken` |
@@ -253,6 +253,21 @@ Log major backend changes here going forward — schema changes, new
 integrations, new endpoints, breaking changes to existing ones.
 
 ### 2026-09-03
+- **Staff no longer see company-wide totals that are the owner's business.**
+  Two changes: (1) the Customers page's "Total customers" stat card and the
+  header's registered-count are now owner-only — staff still get the full
+  browsable list (for looking a customer up on a call) and the repeat-rate/
+  average-value stats, just not the raw headcount. (2) The Orders screen's
+  header used to show "`N` total" (company-wide) to everyone; a staff
+  member now sees "`N` received by you" instead — their own count of
+  orders they personally accepted — while the owner still sees the real
+  total. New `Order.handledByStaffId`/`handledByStaffName` columns are
+  stamped by `updateOrderStatus` the moment a `STAFF`-role actor accepts an
+  order (`NEW → PREPARING`); an owner accepting an order directly leaves it
+  unset, same as before this field existed. Confirmed live: an order
+  accepted while impersonating Staff A carried `handledByStaffId`; one
+  accepted as the owner didn't; per-staff counts and the owner's total both
+  computed correctly off the same list.
 - **The customer's Track Order screen no longer shows the order number.**
   Frontend-only change (`mobile/app/order-tracking.tsx`) — the internal
   order id isn't something the customer needs to see.
