@@ -109,17 +109,12 @@ export default function OrderTrackingScreen() {
         ) : (
           <>
             <View style={styles.statusHeader}>
-              <View>
-                <Text style={styles.statusSub}>
-                  {cancelled ? "" : "Status"}
-                </Text>
-                <Text style={styles.statusTitle}>
-                  {STATUS_TITLE[order.status] ?? order.status}
-                </Text>
-              </View>
-              <View style={{ alignItems: "flex-end" }}>
-                <Text style={styles.orderId}>Order #{order.id}</Text>
-              </View>
+              <Text style={styles.statusSub}>
+                {cancelled ? "" : "Status"}
+              </Text>
+              <Text style={styles.statusTitle}>
+                {STATUS_TITLE[order.status] ?? order.status}
+              </Text>
             </View>
 
             {!cancelled && (
@@ -214,14 +209,10 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   statusHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
     marginBottom: 16,
   },
   statusSub: { fontSize: 12, color: "#666" },
   statusTitle: { fontSize: 18, fontWeight: "bold", color: "#111" },
-  orderId: { fontSize: 11, color: "#666" },
   timeline: { marginBottom: 16, gap: 12 },
   timelineRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: "#D1D5DB" },

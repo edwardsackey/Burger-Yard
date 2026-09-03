@@ -253,6 +253,9 @@ Log major backend changes here going forward — schema changes, new
 integrations, new endpoints, breaking changes to existing ones.
 
 ### 2026-09-03
+- **The customer's Track Order screen no longer shows the order number.**
+  Frontend-only change (`mobile/app/order-tracking.tsx`) — the internal
+  order id isn't something the customer needs to see.
 - **A declined order that was never paid no longer shows on the Payments
   page.** It previously listed every order regardless of status, on the
   reasoning that a paid-then-cancelled order still needs a refund tracked.
