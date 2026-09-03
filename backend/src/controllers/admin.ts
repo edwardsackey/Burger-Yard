@@ -41,11 +41,14 @@ export const getAllOrders = async (req: AuthRequest, res: Response): Promise<voi
 
 // There's deliberately no separate Payment/Transaction table (see the
 // schema notes in the README) — each row here is just an Order re-shaped
-// as a payment record. Cancelled orders are included on purpose: a paid,
-// cancelled order still needs a refund, which the admin should see.
+// as a payment record. A declined order that was never paid never
+// involved real money, so it's excluded entirely — but a declined order
+// that WAS already paid (an online payment confirmed before the admin
+// declined it) still needs a refund, so that one stays visible on purpose.
 export const getPayments = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const orders = await prisma.order.findMany({
+      where: { NOT: { status: 'CANCELLED', paid: false } },
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,

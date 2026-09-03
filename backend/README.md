@@ -207,7 +207,7 @@ unused multi-tenant complexity:
 | `PUT/DELETE /api/admin/riders/:id` | Owner-only. Edit/deactivate/remove a rider from the roster |
 | `GET /api/admin/dashboard?period=today\|week\|month` | Owner-only. Real sales/orders/avg-order-value/new-customer stats (with a delta vs the equivalent previous period), a revenue series bucketed to fit the period, best sellers (each with the item's real `image_url`), an hour-of-day order histogram, and the 6 most recent orders — all computed live from `Order`/`OrderItem`/`User`, nothing precomputed or cached. Same `paymentMethod = CASH OR paid = true` filter as `/orders` — an unconfirmed online order never counts toward sales |
 | `GET /api/admin/reports?days=7\|30\|90` | Owner-only. Gross revenue and orders-completed with deltas vs the equivalent prior window, a real avg prep time (`readyAt - acceptedAt`, `null` until an order has both), a revenue trend (daily/weekly/monthly buckets depending on window size), a peak-hours histogram, and top-selling items by quantity with category + revenue. Same unconfirmed-online-order exclusion as `/orders` and `/dashboard` |
-| `GET /api/admin/payments` | Owner-only. Every order reshaped as a payment record (no separate Payment table — see schema notes) with a derived status (`Paid`/`Awaiting payment`/`Cash on delivery`/`Cancelled`) and the assigned rider's name, plus total collected, cash outstanding, and amount awaiting online confirmation. Cancelled orders are included deliberately — a paid, cancelled order still needs a refund. Marking a `CASH` order `COMPLETED` now flips it to `Paid` here automatically |
+| `GET /api/admin/payments` | Owner-only. Every order reshaped as a payment record (no separate Payment table — see schema notes) with a derived status (`Paid`/`Awaiting payment`/`Cash on delivery`/`Cancelled`) and the assigned rider's name, plus total collected, cash outstanding, and amount awaiting online confirmation. A declined order that was never paid is excluded (nothing to reconcile); a declined order that was already paid still shows, since a refund is owed. Marking a `CASH` order `COMPLETED` now flips it to `Paid` here automatically |
 | `GET /api/admin/payments/:id` | Owner-only. The full receipt for one order — items, extras, subtotal, delivery fee, total, payment method/status, delivery address, and rider — for the Payments screen's row-click receipt view. Never exposes `deliveryCode` |
 
 ## Roadmap — what's still ahead
@@ -253,6 +253,16 @@ Log major backend changes here going forward — schema changes, new
 integrations, new endpoints, breaking changes to existing ones.
 
 ### 2026-09-03
+- **A declined order that was never paid no longer shows on the Payments
+  page.** It previously listed every order regardless of status, on the
+  reasoning that a paid-then-cancelled order still needs a refund tracked.
+  That reasoning only holds when money actually moved — a declined `NEW`
+  order that was never paid never involved a real payment, so it's now
+  excluded (`GET /admin/payments` filters out `status = CANCELLED AND paid
+  = false`). A declined order that *was* already paid (an online payment
+  confirmed before the admin declined it) still shows, since a refund is
+  genuinely owed there. Confirmed live: a declined unpaid cash order was
+  excluded; a declined already-paid MoMo order still appeared.
 - **Fixed the ITEMS section of an order's detail panel (admin Orders page)
   showing the wrong photo.** Same root cause and fix as the Dashboard
   entry below — it matched by item *name* against the old seed-menu
