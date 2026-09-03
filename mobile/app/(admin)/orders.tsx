@@ -11,6 +11,7 @@ import { useDialog } from "@/components/admin/dialog";
 import { Field, ModalSheet, fieldStyles } from "@/components/admin/modal-sheet";
 import { Admin } from "@/constants/admin-theme";
 import { menuImage } from "@/constants/menu-catalog";
+import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useAdminSession } from "@/context/AdminSession";
 import { useResponsive } from "@/hooks/use-responsive";
 import { useLocalSearchParams } from "expo-router";
@@ -457,8 +458,13 @@ export default function AdminOrdersScreen() {
       <View style={styles.contactRow}>
         <Button label="Call" icon="phone" variant="secondary" size="sm"
           onPress={() => call(current)} />
-        <Button label="WhatsApp" icon="message-circle" variant="secondary" size="sm"
-          onPress={() => whatsapp(current)} />
+        <Button
+          label="WhatsApp"
+          iconElement={<FontAwesome name="whatsapp" size={15} color="#25D366" />}
+          variant="secondary"
+          size="sm"
+          onPress={() => whatsapp(current)}
+        />
       </View>
 
       {current.status !== "New" && current.status !== "Cancelled" && (

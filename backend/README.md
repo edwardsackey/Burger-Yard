@@ -253,6 +253,14 @@ Log major backend changes here going forward — schema changes, new
 integrations, new endpoints, breaking changes to existing ones.
 
 ### 2026-09-03
+- **The admin Orders screen's WhatsApp button now uses the real WhatsApp
+  brand mark** instead of a generic message-bubble icon — `Button` gained
+  an `iconElement` prop (an override for a brand icon outside the app's
+  Feather icon set) so this didn't need a broader icon-system change. The
+  button already opened a `wa.me/<number>` link, which starts a real new
+  chat with that customer's number in WhatsApp (or shows WhatsApp's own
+  "not on WhatsApp" if the number isn't registered there) — that behavior
+  was already correct, only the icon was wrong.
 - **Staff no longer see company-wide totals that are the owner's business.**
   Two changes: (1) the Customers page's "Total customers" stat card and the
   header's registered-count are now owner-only — staff still get the full

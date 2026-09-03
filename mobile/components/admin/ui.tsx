@@ -70,6 +70,8 @@ type ButtonProps = {
   onPress: () => void;
   variant?: "primary" | "secondary" | "ghost" | "danger";
   icon?: IconName;
+  /** Overrides `icon` — for a brand mark (e.g. WhatsApp) outside the Feather set. */
+  iconElement?: React.ReactNode;
   size?: "sm" | "md";
   disabled?: boolean;
   style?: ViewStyle;
@@ -81,6 +83,7 @@ export function Button({
   onPress,
   variant = "primary",
   icon,
+  iconElement,
   size = "md",
   disabled,
   style,
@@ -122,7 +125,7 @@ export function Button({
           },
         ]}
       >
-        {icon ? <Icon name={icon} size={size === "sm" ? 13 : 15} color={tone.fg} /> : null}
+        {iconElement ?? (icon ? <Icon name={icon} size={size === "sm" ? 13 : 15} color={tone.fg} /> : null)}
         <Text
           style={[
             styles.btnText,
