@@ -253,6 +253,8 @@ Log major backend changes here going forward — schema changes, new
 integrations, new endpoints, breaking changes to existing ones.
 
 ### 2026-09-03
+- **Added a Call button next to the customer's number on the receipt view**
+  (same `tel:` link pattern already used on the Orders screen).
 - **Clicking a Payments row now opens that order's receipt.** Added
   `GET /admin/payments/:id` (owner-only, same delivery-code exclusion as
   every other admin order query) returning the full breakdown — items with

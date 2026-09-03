@@ -11,10 +11,10 @@ import {
 } from "@/components/admin/screen-parts";
 import { ExportButton } from "@/components/admin/export-menu";
 import { Admin } from "@/constants/admin-theme";
-import { FadeIn, StatusPill } from "@/components/admin/ui";
+import { Button, FadeIn, StatusPill } from "@/components/admin/ui";
 import { useResponsive } from "@/hooks/use-responsive";
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, View } from "react-native";
 
 type Status = "Paid" | "Awaiting payment" | "Cash on delivery" | "Cancelled";
 
@@ -263,8 +263,21 @@ export default function AdminPaymentsScreen() {
 
             <View style={receiptStyles.block}>
               <Text style={receiptStyles.label}>CUSTOMER</Text>
-              <Text style={receiptStyles.value}>{receipt.customer.name}</Text>
-              <Text style={receiptStyles.muted}>{receipt.customer.phone}</Text>
+              <View style={receiptStyles.customerRow}>
+                <View>
+                  <Text style={receiptStyles.value}>{receipt.customer.name}</Text>
+                  <Text style={receiptStyles.muted}>{receipt.customer.phone}</Text>
+                </View>
+                <Button
+                  label="Call"
+                  icon="phone"
+                  variant="secondary"
+                  size="sm"
+                  onPress={() =>
+                    Linking.openURL(`tel:+233${receipt.customer.phone.replace(/^0/, "")}`)
+                  }
+                />
+              </View>
             </View>
 
             <View style={receiptStyles.block}>
@@ -346,6 +359,9 @@ export default function AdminPaymentsScreen() {
 const receiptStyles = StyleSheet.create({
   date: { fontSize: 12, color: Admin.textFaint, marginBottom: 16 },
   block: { marginBottom: 14 },
+  customerRow: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10,
+  },
   label: {
     fontSize: 10, fontWeight: "700", color: Admin.textFaint,
     letterSpacing: 0.6, marginBottom: 6,
