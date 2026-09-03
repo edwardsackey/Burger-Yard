@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getAllOrders, getCustomers, getPayments, updateOrderStatus } from '../controllers/admin';
+import { getAllOrders, getCustomers, getPayments, getPaymentReceipt, updateOrderStatus } from '../controllers/admin';
 import { listMenu, addMenuItem, updateMenuItem, deleteMenuItem } from '../controllers/menu';
 import {
   ownerLogin,
@@ -53,5 +53,6 @@ router.delete('/riders/:id', authenticate, requireOwner, deleteRider);
 router.get('/dashboard', authenticate, requireOwner, getDashboard);
 router.get('/reports', authenticate, requireOwner, getReports);
 router.get('/payments', authenticate, requireOwner, getPayments);
+router.get('/payments/:id', authenticate, requireOwner, getPaymentReceipt);
 
 export default router;

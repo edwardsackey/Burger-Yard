@@ -80,6 +80,56 @@ export const getPayments = async (req: AuthRequest, res: Response): Promise<void
   }
 };
 
+// The receipt for a single order, shown when the admin clicks a Payments
+// row. Same delivery-code exclusion as every other admin-facing order
+// query — this is a payment record, not proof of delivery.
+export const getPaymentReceipt = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const orderId = parseInt(req.params.id);
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      omit: { deliveryCode: true },
+      include: {
+        user: { select: { name: true, phone: true } },
+        address: true,
+        orderItems: { include: { menuItem: true } },
+      },
+    });
+
+    if (!order) {
+      res.status(404).json({ message: 'Order not found' });
+      return;
+    }
+
+    res.json({
+      id: order.id,
+      createdAt: order.createdAt,
+      customer: { name: order.user?.name ?? 'Customer', phone: order.phone },
+      address: order.address?.label ?? null,
+      addressDetails: order.address?.details ?? null,
+      landmark: order.landmark,
+      items: order.orderItems.map((oi) => ({
+        name: oi.menuItem.name,
+        quantity: oi.quantity,
+        unitPrice: oi.price_at_time_of_order,
+        lineTotal: oi.price_at_time_of_order * oi.quantity,
+        extras: oi.extras,
+      })),
+      subtotal: order.total_amount - order.deliveryFee,
+      deliveryFee: order.deliveryFee,
+      total: order.total_amount,
+      paymentMethod: order.paymentMethod,
+      momoNetwork: order.momoNetwork,
+      paid: order.paid,
+      status: order.status,
+      riderName: order.riderName,
+      riderPhone: order.riderPhone,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 export const getCustomers = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const customers = await prisma.user.findMany({

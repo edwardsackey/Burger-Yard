@@ -208,6 +208,7 @@ unused multi-tenant complexity:
 | `GET /api/admin/dashboard?period=today\|week\|month` | Owner-only. Real sales/orders/avg-order-value/new-customer stats (with a delta vs the equivalent previous period), a revenue series bucketed to fit the period, best sellers, an hour-of-day order histogram, and the 6 most recent orders — all computed live from `Order`/`OrderItem`/`User`, nothing precomputed or cached |
 | `GET /api/admin/reports?days=7\|30\|90` | Owner-only. Gross revenue and orders-completed with deltas vs the equivalent prior window, a real avg prep time (`readyAt - acceptedAt`, `null` until an order has both), a revenue trend (daily/weekly/monthly buckets depending on window size), a peak-hours histogram, and top-selling items by quantity with category + revenue |
 | `GET /api/admin/payments` | Owner-only. Every order reshaped as a payment record (no separate Payment table — see schema notes) with a derived status (`Paid`/`Awaiting payment`/`Cash on delivery`/`Cancelled`) and the assigned rider's name, plus total collected, cash outstanding, and amount awaiting online confirmation. Cancelled orders are included deliberately — a paid, cancelled order still needs a refund. Marking a `CASH` order `COMPLETED` now flips it to `Paid` here automatically |
+| `GET /api/admin/payments/:id` | Owner-only. The full receipt for one order — items, extras, subtotal, delivery fee, total, payment method/status, delivery address, and rider — for the Payments screen's row-click receipt view. Never exposes `deliveryCode` |
 
 ## Roadmap — what's still ahead
 
@@ -252,6 +253,13 @@ Log major backend changes here going forward — schema changes, new
 integrations, new endpoints, breaking changes to existing ones.
 
 ### 2026-09-03
+- **Clicking a Payments row now opens that order's receipt.** Added
+  `GET /admin/payments/:id` (owner-only, same delivery-code exclusion as
+  every other admin order query) returning the full breakdown — items with
+  quantity/unit price/extras, subtotal, delivery fee, total, payment
+  method + status, delivery address, and assigned rider. The Payments
+  screen opens it in a modal on row tap. Confirmed live against a seeded
+  order with items and extras.
 - **Marking a cash-on-delivery order "Delivered" now marks it paid.**
   Previously `Order.paid` only ever flipped via the Paystack webhook, so a
   completed cash order sat in "Cash outstanding" forever. `updateOrderStatus`
