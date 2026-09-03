@@ -12,7 +12,7 @@ import {
 } from "@/components/admin/ui";
 import { ExportButton } from "@/components/admin/export-menu";
 import { Admin } from "@/constants/admin-theme";
-import { imageForName } from "@/constants/menu-catalog";
+import { menuImage } from "@/constants/menu-catalog";
 import { useResponsive } from "@/hooks/use-responsive";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
@@ -37,7 +37,7 @@ const PERIOD_PARAM: Record<Period, string> = {
 
 type Stat = { label: string; value: string; delta: string; icon: IconName };
 type RecentOrder = { id: string; name: string; total: string; pay: string; status: string; time: string };
-type BestSeller = { name: string; sold: number };
+type BestSeller = { id: number; name: string; imageUrl: string | null; sold: number };
 
 type DashboardData = {
   stats: {
@@ -248,10 +248,10 @@ export default function AdminDashboardScreen() {
               <Text style={styles.empty}>No orders in this period yet.</Text>
             ) : (
               bestSellers.map((b, i) => (
-              <View key={b.name} style={styles.sellerRow}>
+              <View key={b.id} style={styles.sellerRow}>
                 <View style={styles.sellerThumbWrap}>
                   <Image
-                    source={imageForName(b.name)}
+                    source={b.imageUrl ? { uri: b.imageUrl } : menuImage(String(b.id))}
                     style={styles.sellerThumb}
                     resizeMode="cover"
                   />

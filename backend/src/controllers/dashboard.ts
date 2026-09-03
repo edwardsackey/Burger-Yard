@@ -143,17 +143,26 @@ export const getDashboard = async (req: AuthRequest, res: Response): Promise<voi
       }));
     }
 
-    // Best sellers, by quantity, within the selected period.
-    const soldByItem = new Map<string, number>();
+    // Best sellers, by quantity, within the selected period. Keyed by
+    // menuItemId (not name) so the real photo the admin uploaded for that
+    // exact item — not a guess from a hardcoded name lookup — is what
+    // shows here.
+    const soldByItem = new Map<number, { name: string; imageUrl: string | null; sold: number }>();
     for (const order of orders) {
       for (const item of order.orderItems) {
-        soldByItem.set(item.menuItem.name, (soldByItem.get(item.menuItem.name) ?? 0) + item.quantity);
+        const entry = soldByItem.get(item.menuItemId) ?? {
+          name: item.menuItem.name,
+          imageUrl: item.menuItem.image_url,
+          sold: 0,
+        };
+        entry.sold += item.quantity;
+        soldByItem.set(item.menuItemId, entry);
       }
     }
     const bestSellers = [...soldByItem.entries()]
-      .sort((a, b) => b[1] - a[1])
+      .sort((a, b) => b[1].sold - a[1].sold)
       .slice(0, 5)
-      .map(([name, sold]) => ({ name, sold }));
+      .map(([id, v]) => ({ id, name: v.name, imageUrl: v.imageUrl, sold: v.sold }));
 
     // Peak hours — order *count* by hour-of-day within the selected period.
     const peakBuckets = [

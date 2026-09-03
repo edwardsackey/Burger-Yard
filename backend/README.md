@@ -205,7 +205,7 @@ unused multi-tenant complexity:
 | `GET/POST/PUT/DELETE /api/admin/staff`, `POST /:id/regenerate-pin` | Owner-only staff management. A PIN is only ever returned in plaintext once, from `createStaff`/`regenerateStaffPin` — never retrievable afterward |
 | `GET/POST /api/admin/riders` | Staff-or-owner. Staff can view the roster and add a rider on the fly while assigning a delivery |
 | `PUT/DELETE /api/admin/riders/:id` | Owner-only. Edit/deactivate/remove a rider from the roster |
-| `GET /api/admin/dashboard?period=today\|week\|month` | Owner-only. Real sales/orders/avg-order-value/new-customer stats (with a delta vs the equivalent previous period), a revenue series bucketed to fit the period, best sellers, an hour-of-day order histogram, and the 6 most recent orders — all computed live from `Order`/`OrderItem`/`User`, nothing precomputed or cached. Same `paymentMethod = CASH OR paid = true` filter as `/orders` — an unconfirmed online order never counts toward sales |
+| `GET /api/admin/dashboard?period=today\|week\|month` | Owner-only. Real sales/orders/avg-order-value/new-customer stats (with a delta vs the equivalent previous period), a revenue series bucketed to fit the period, best sellers (each with the item's real `image_url`), an hour-of-day order histogram, and the 6 most recent orders — all computed live from `Order`/`OrderItem`/`User`, nothing precomputed or cached. Same `paymentMethod = CASH OR paid = true` filter as `/orders` — an unconfirmed online order never counts toward sales |
 | `GET /api/admin/reports?days=7\|30\|90` | Owner-only. Gross revenue and orders-completed with deltas vs the equivalent prior window, a real avg prep time (`readyAt - acceptedAt`, `null` until an order has both), a revenue trend (daily/weekly/monthly buckets depending on window size), a peak-hours histogram, and top-selling items by quantity with category + revenue. Same unconfirmed-online-order exclusion as `/orders` and `/dashboard` |
 | `GET /api/admin/payments` | Owner-only. Every order reshaped as a payment record (no separate Payment table — see schema notes) with a derived status (`Paid`/`Awaiting payment`/`Cash on delivery`/`Cancelled`) and the assigned rider's name, plus total collected, cash outstanding, and amount awaiting online confirmation. Cancelled orders are included deliberately — a paid, cancelled order still needs a refund. Marking a `CASH` order `COMPLETED` now flips it to `Paid` here automatically |
 | `GET /api/admin/payments/:id` | Owner-only. The full receipt for one order — items, extras, subtotal, delivery fee, total, payment method/status, delivery address, and rider — for the Payments screen's row-click receipt view. Never exposes `deliveryCode` |
@@ -253,6 +253,17 @@ Log major backend changes here going forward — schema changes, new
 integrations, new endpoints, breaking changes to existing ones.
 
 ### 2026-09-03
+- **Fixed Dashboard "Best sellers" showing the wrong photo for an item.**
+  It picked a picture by matching the item's *name* against a small
+  hardcoded lookup table meant for the original seed menu — any admin-added
+  or renamed item fell through to a generic placeholder, or worse, whatever
+  seed item happened to share styling. `GET /admin/dashboard` now returns
+  each best seller's real `MenuItem.image_url` (the actual photo the admin
+  uploaded — see the photo-picker entry above), keyed by `menuItemId`
+  instead of name; the screen renders that directly and only falls back to
+  the old id-based placeholder table when an item has no uploaded photo.
+  Confirmed live: a custom item with a real uploaded photo now shows that
+  exact photo in Best sellers instead of a mismatched placeholder.
 - **The admin console no longer treats a pending online payment as a real
   order.** Previously `placeOrder` created the `Order` row (and the admin's
   Orders screen/new-order alert just polls that same list) the instant
