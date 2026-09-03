@@ -20,13 +20,17 @@ export const getReports = async (req: AuthRequest, res: Response): Promise<void>
     const start = new Date(now.getTime() - days * DAY_MS);
     const prevStart = new Date(start.getTime() - days * DAY_MS);
 
+    // Same rule as the Orders screen and Dashboard: a MoMo/Card order isn't
+    // real revenue until Paystack actually confirms it.
+    const PAID_OR_CASH = { OR: [{ paymentMethod: 'CASH' as const }, { paid: true }] };
+
     const [orders, prevOrders] = await Promise.all([
       prisma.order.findMany({
-        where: { createdAt: { gte: start, lte: now }, status: { not: 'CANCELLED' } },
+        where: { createdAt: { gte: start, lte: now }, status: { not: 'CANCELLED' }, ...PAID_OR_CASH },
         include: { orderItems: { include: { menuItem: true } } },
       }),
       prisma.order.findMany({
-        where: { createdAt: { gte: prevStart, lt: start }, status: { not: 'CANCELLED' } },
+        where: { createdAt: { gte: prevStart, lt: start }, status: { not: 'CANCELLED' }, ...PAID_OR_CASH },
         select: { total_amount: true, status: true },
       }),
     ]);

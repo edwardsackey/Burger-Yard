@@ -15,6 +15,14 @@ const STATUS_MESSAGE: Record<string, string> = {
 export const getAllOrders = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const orders = await prisma.order.findMany({
+      // A MoMo/Card order row exists the moment checkout calls
+      // /payments/initialize — before the customer has actually paid — so
+      // the kitchen (and the new-order alert, which just polls this same
+      // endpoint) must not see or be notified about it until Paystack has
+      // actually confirmed the charge. Cash has no such gap: it's the
+      // order itself, not a pending online charge, so it's visible right
+      // away same as always.
+      where: { OR: [{ paymentMethod: 'CASH' }, { paid: true }] },
       orderBy: { createdAt: 'desc' },
       // The delivery code is the customer's own proof-of-receipt — never
       // expose it on an admin-facing query.

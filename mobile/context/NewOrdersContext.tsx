@@ -68,6 +68,11 @@ export function NewOrdersProvider({ children }: { children: React.ReactNode }) {
           const arrivedOrders = newOrders.filter((o) => !seenOrderIds.current!.has(o.id));
           arrivedOrders.forEach((o) => {
             seenOrderIds.current!.add(o.id);
+            // A MoMo/Card order is only ever visible here once it's already
+            // paid (the backend hides it until then), so there's no later
+            // "payment confirmed" moment to separately alert on for it —
+            // mark it seen-paid now so the next poll doesn't also fire one.
+            if (o.paid) seenPaidIds.current!.add(o.id);
             fresh.push({
               kind: "order",
               id: o.id,
@@ -76,8 +81,9 @@ export function NewOrdersProvider({ children }: { children: React.ReactNode }) {
             });
           });
 
-          // Cash orders never flip this — only a real Paystack confirmation
-          // (MoMo/Card) sets paid:true, so this only ever fires for those.
+          // Only ever fires for a cash order already on screen, flipping
+          // paid when it's marked Delivered — online orders arrive already
+          // paid (see above), so there's nothing left to catch here for them.
           const justPaid = data.filter((o) => o.paid && !seenPaidIds.current!.has(o.id));
           justPaid.forEach((o) => {
             seenPaidIds.current!.add(o.id);

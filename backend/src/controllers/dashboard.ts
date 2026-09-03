@@ -59,18 +59,25 @@ export const getDashboard = async (req: AuthRequest, res: Response): Promise<voi
     const now = new Date();
     const { start, end, prevStart, prevEnd } = getRanges(period, now);
 
+    // A MoMo/Card order isn't real business yet until Paystack actually
+    // confirms it (see getAllOrders) — revenue and "recent orders" here
+    // must not count a pending charge as a sale any more than the Orders
+    // screen should notify the kitchen about one.
+    const PAID_OR_CASH = { OR: [{ paymentMethod: 'CASH' as const }, { paid: true }] };
+
     const [orders, prevOrders, newCustomers, prevNewCustomers, recentOrdersRaw] = await Promise.all([
       prisma.order.findMany({
-        where: { createdAt: { gte: start, lte: end }, status: { not: 'CANCELLED' } },
+        where: { createdAt: { gte: start, lte: end }, status: { not: 'CANCELLED' }, ...PAID_OR_CASH },
         include: { orderItems: { include: { menuItem: true } } },
       }),
       prisma.order.findMany({
-        where: { createdAt: { gte: prevStart, lt: prevEnd }, status: { not: 'CANCELLED' } },
+        where: { createdAt: { gte: prevStart, lt: prevEnd }, status: { not: 'CANCELLED' }, ...PAID_OR_CASH },
         select: { total_amount: true },
       }),
       prisma.user.count({ where: { role: 'CUSTOMER', createdAt: { gte: start, lte: end } } }),
       prisma.user.count({ where: { role: 'CUSTOMER', createdAt: { gte: prevStart, lt: prevEnd } } }),
       prisma.order.findMany({
+        where: PAID_OR_CASH,
         orderBy: { createdAt: 'desc' },
         take: 6,
         include: { user: { select: { name: true } } },

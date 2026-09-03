@@ -194,7 +194,7 @@ unused multi-tenant complexity:
 | `GET /api/payments/verify/:reference` | Authoritative payment status check (see above) |
 | `POST /api/payments/webhook` | Paystack webhook (production path) |
 | `GET /api/places/nearby-landmark` | Map-tap → landmark + city lookup |
-| `GET /api/admin/orders`, `PUT /api/admin/orders/:id/status` | Staff-or-owner. `getAllOrders` and the status update both `omit` `deliveryCode`. A status update sends the customer a real Expo push notification (see below) |
+| `GET /api/admin/orders`, `PUT /api/admin/orders/:id/status` | Staff-or-owner. `getAllOrders` and the status update both `omit` `deliveryCode`. A MoMo/Card order only appears here once Paystack has actually confirmed it (`paymentMethod = CASH OR paid = true`) — see Changelog. A status update sends the customer a real Expo push notification (see below) |
 | `GET/POST/PUT/DELETE /api/admin/menu` | Staff-or-owner. `GET` returns every item (including hidden ones) with a real "sold in the last 7 days" count computed from `OrderItem`. `DELETE` hard-deletes only if the item has zero past orders — otherwise it falls back to hiding it (`available: false`) and tells the frontend so, since hard-deleting would break the receipt on those past orders |
 | `POST /api/admin/uploads/image` | Staff-or-owner. Multipart image upload (field `image`, ≤5MB, JPEG/PNG/WEBP/GIF only) for the menu photo picker — saves to `backend/uploads/` and returns `{ url }`, built from the request's own host so it resolves correctly through a cloudflared tunnel too. Served back via `express.static` at `/uploads/*` |
 | `PUT /api/auth/push-token` | Authenticated customer. Saves the device's Expo push token onto `User.pushToken` |
@@ -205,8 +205,8 @@ unused multi-tenant complexity:
 | `GET/POST/PUT/DELETE /api/admin/staff`, `POST /:id/regenerate-pin` | Owner-only staff management. A PIN is only ever returned in plaintext once, from `createStaff`/`regenerateStaffPin` — never retrievable afterward |
 | `GET/POST /api/admin/riders` | Staff-or-owner. Staff can view the roster and add a rider on the fly while assigning a delivery |
 | `PUT/DELETE /api/admin/riders/:id` | Owner-only. Edit/deactivate/remove a rider from the roster |
-| `GET /api/admin/dashboard?period=today\|week\|month` | Owner-only. Real sales/orders/avg-order-value/new-customer stats (with a delta vs the equivalent previous period), a revenue series bucketed to fit the period, best sellers, an hour-of-day order histogram, and the 6 most recent orders — all computed live from `Order`/`OrderItem`/`User`, nothing precomputed or cached |
-| `GET /api/admin/reports?days=7\|30\|90` | Owner-only. Gross revenue and orders-completed with deltas vs the equivalent prior window, a real avg prep time (`readyAt - acceptedAt`, `null` until an order has both), a revenue trend (daily/weekly/monthly buckets depending on window size), a peak-hours histogram, and top-selling items by quantity with category + revenue |
+| `GET /api/admin/dashboard?period=today\|week\|month` | Owner-only. Real sales/orders/avg-order-value/new-customer stats (with a delta vs the equivalent previous period), a revenue series bucketed to fit the period, best sellers, an hour-of-day order histogram, and the 6 most recent orders — all computed live from `Order`/`OrderItem`/`User`, nothing precomputed or cached. Same `paymentMethod = CASH OR paid = true` filter as `/orders` — an unconfirmed online order never counts toward sales |
+| `GET /api/admin/reports?days=7\|30\|90` | Owner-only. Gross revenue and orders-completed with deltas vs the equivalent prior window, a real avg prep time (`readyAt - acceptedAt`, `null` until an order has both), a revenue trend (daily/weekly/monthly buckets depending on window size), a peak-hours histogram, and top-selling items by quantity with category + revenue. Same unconfirmed-online-order exclusion as `/orders` and `/dashboard` |
 | `GET /api/admin/payments` | Owner-only. Every order reshaped as a payment record (no separate Payment table — see schema notes) with a derived status (`Paid`/`Awaiting payment`/`Cash on delivery`/`Cancelled`) and the assigned rider's name, plus total collected, cash outstanding, and amount awaiting online confirmation. Cancelled orders are included deliberately — a paid, cancelled order still needs a refund. Marking a `CASH` order `COMPLETED` now flips it to `Paid` here automatically |
 | `GET /api/admin/payments/:id` | Owner-only. The full receipt for one order — items, extras, subtotal, delivery fee, total, payment method/status, delivery address, and rider — for the Payments screen's row-click receipt view. Never exposes `deliveryCode` |
 
@@ -253,6 +253,25 @@ Log major backend changes here going forward — schema changes, new
 integrations, new endpoints, breaking changes to existing ones.
 
 ### 2026-09-03
+- **The admin console no longer treats a pending online payment as a real
+  order.** Previously `placeOrder` created the `Order` row (and the admin's
+  Orders screen/new-order alert just polls that same list) the instant
+  checkout called `/payments/initialize` — before the customer had actually
+  paid, so a MoMo/Card charge that was still in progress, abandoned, or
+  outright failed still showed up and pinged the admin as a new order.
+  `GET /admin/orders`, `/admin/dashboard`, and `/admin/reports` now all
+  filter to `paymentMethod = CASH OR paid = true` — a MoMo/Card order only
+  becomes visible (and only then fires the new-order alert) the instant
+  Paystack actually confirms it, via `verifyPayment` or the webhook. Cash
+  orders are unaffected — there's no pending online charge to wait for.
+  `NewOrdersContext` was adjusted so an order that arrives already paid
+  fires one "new order" alert, not a duplicate "payment confirmed" alert
+  right behind it. `GET /admin/payments` is deliberately unchanged — it
+  still lists unpaid attempts under "Awaiting payment" for reconciliation.
+  Confirmed live: an unpaid MoMo order was invisible to `getAllOrders`/
+  dashboard/reports and excluded from totals; flipping `paid: true` made it
+  appear immediately with the correct totals, while a cash order stayed
+  visible throughout regardless of `paid`.
 - **Added a Call button next to the customer's number on the receipt view**
   (same `tel:` link pattern already used on the Orders screen).
 - **Clicking a Payments row now opens that order's receipt.** Added
