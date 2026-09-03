@@ -14,6 +14,7 @@ import {
 import { listRiders, createRider, updateRider, deleteRider } from '../controllers/riders';
 import { getDashboard } from '../controllers/dashboard';
 import { getReports } from '../controllers/reports';
+import { uploadImageMiddleware, handleImageUpload } from '../controllers/uploads';
 import { authenticate, requireOwner, requireStaffOrOwner } from '../middleware/auth';
 
 const router = Router();
@@ -25,6 +26,7 @@ router.post('/auth/staff-login', staffLogin);
 
 // Staff or owner — the day-to-day admin console screens.
 router.get('/menu', authenticate, requireStaffOrOwner, listMenu);
+router.post('/uploads/image', authenticate, requireStaffOrOwner, uploadImageMiddleware, handleImageUpload);
 router.post('/menu', authenticate, requireStaffOrOwner, addMenuItem);
 router.put('/menu/:id', authenticate, requireStaffOrOwner, updateMenuItem);
 router.delete('/menu/:id', authenticate, requireStaffOrOwner, deleteMenuItem);

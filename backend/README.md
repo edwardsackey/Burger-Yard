@@ -196,6 +196,7 @@ unused multi-tenant complexity:
 | `GET /api/places/nearby-landmark` | Map-tap → landmark + city lookup |
 | `GET /api/admin/orders`, `PUT /api/admin/orders/:id/status` | Staff-or-owner. `getAllOrders` and the status update both `omit` `deliveryCode`. A status update sends the customer a real Expo push notification (see below) |
 | `GET/POST/PUT/DELETE /api/admin/menu` | Staff-or-owner. `GET` returns every item (including hidden ones) with a real "sold in the last 7 days" count computed from `OrderItem`. `DELETE` hard-deletes only if the item has zero past orders — otherwise it falls back to hiding it (`available: false`) and tells the frontend so, since hard-deleting would break the receipt on those past orders |
+| `POST /api/admin/uploads/image` | Staff-or-owner. Multipart image upload (field `image`, ≤5MB, JPEG/PNG/WEBP/GIF only) for the menu photo picker — saves to `backend/uploads/` and returns `{ url }`, built from the request's own host so it resolves correctly through a cloudflared tunnel too. Served back via `express.static` at `/uploads/*` |
 | `PUT /api/auth/push-token` | Authenticated customer. Saves the device's Expo push token onto `User.pushToken` |
 | `GET /api/admin/customers` | Staff-or-owner. Every `CUSTOMER`-role user with their real order count, lifetime spend, and last order date computed live from `Order` — including ones with zero orders |
 | `POST /api/admin/auth/owner-login` | Owner email/password login |
@@ -215,9 +216,12 @@ Dashboard, Reports, Menu, and Payments pages are now real, and the
 customer app's menu is now live-backed too — see Changelog. What's still
 mock or unbuilt:
 
-- Real image **upload** — the menu form takes a photo URL (paste-in), not
-  a file picker/cloud storage upload. Good enough for now, but a real
-  admin will more often have a photo on their phone than a hosted URL
+- Uploaded menu photos are stored on the **backend's local disk**
+  (`backend/uploads/`, gitignored), served via a static route. Simple and
+  needs no third-party account, but not durable on a host with an
+  ephemeral filesystem (e.g. a free-tier PaaS that wipes disk on
+  redeploy) — worth moving to real object storage (S3, Cloudinary, etc.)
+  before a production deploy on that kind of host.
 - A Google Maps SDK for Android key is now set in `app.json`
   (`android.config.googleMaps.apiKey`), but **it has no effect in Expo
   Go** — Expo Go is a fixed, pre-built shell shared by every Expo project
@@ -248,6 +252,18 @@ Log major backend changes here going forward — schema changes, new
 integrations, new endpoints, breaking changes to existing ones.
 
 ### 2026-09-01
+- **Replaced the menu photo URL text field with a real picker.** Added
+  `POST /admin/uploads/image` (multer, disk storage under
+  `backend/uploads/`, gitignored, served via `express.static`) with
+  size/type validation returning clean JSON errors rather than falling
+  through to Express's default HTML error page. New
+  `mobile/components/admin/image-upload.{native,web}.ts` opens the
+  system photo picker (native: `expo-image-picker`; web: a plain
+  `<input type="file">`) — both surface whatever cloud-drive providers
+  the OS/browser itself integrates (Google Drive, iCloud, etc.), which is
+  an OS-level capability, not something built here — and uploads the
+  result. Confirmed live: valid image uploads and serves back correctly;
+  a non-image upload is cleanly rejected with a 400.
 - **Wired the admin Payments page to real data** (`GET /admin/payments`,
   owner-only), replacing the hardcoded `TXNS` array. Every order is
   reshaped into a payment row with a derived status — `Paid`, `Awaiting

@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
 import authRoutes from './routes/auth';
 import customerRoutes from './routes/customer';
 import adminRoutes from './routes/admin';
@@ -16,6 +17,9 @@ const port = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(express.json());
+// Serves whatever the menu-image upload endpoint saves — same folder
+// uploadImageMiddleware writes into (see controllers/uploads.ts).
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 // Routes
 app.use('/api/auth', authRoutes);

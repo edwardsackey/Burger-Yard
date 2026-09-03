@@ -1,5 +1,6 @@
 import { apiFetch } from "@/api";
 import { useDialog } from "@/components/admin/dialog";
+import { pickAndUploadImage } from "@/components/admin/image-upload";
 import { Field, ModalSheet, fieldStyles } from "@/components/admin/modal-sheet";
 import {
   Button,
@@ -73,6 +74,7 @@ export default function AdminMenuScreen() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [saving, setSaving] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   // One sheet drives both add and edit; `draft.id === 0` says which.
   const [draft, setDraft] = useState<MenuItem | null>(null);
@@ -128,6 +130,22 @@ export default function AdminMenuScreen() {
     } catch {
       // Revert — the request didn't actually go through.
       setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, available: !available } : i)));
+    }
+  };
+
+  const handleChoosePhoto = async () => {
+    if (!draft) return;
+    setUploadingPhoto(true);
+    try {
+      const url = await pickAndUploadImage();
+      if (url) setDraft({ ...draft, imageUrl: url });
+    } catch (error) {
+      notify({
+        title: "Couldn't upload photo",
+        message: error instanceof Error ? error.message : "Please try again.",
+      });
+    } finally {
+      setUploadingPhoto(false);
     }
   };
 
@@ -485,16 +503,38 @@ export default function AdminMenuScreen() {
               />
             </Field>
 
-            <Field label="Photo URL (optional)">
-              <TextInput
-                style={fieldStyles.input}
-                value={draft.imageUrl}
-                onChangeText={(imageUrl) => setDraft({ ...draft, imageUrl })}
-                placeholder="https://..."
-                placeholderTextColor={Admin.textFaint}
-                autoCapitalize="none"
-                keyboardType="url"
-              />
+            <Field label="Photo (optional)">
+              <View style={styles.photoRow}>
+                <Image
+                  source={draft.imageUrl ? { uri: draft.imageUrl } : menuImage(String(draft.id))}
+                  style={styles.photoPreview}
+                  resizeMode="cover"
+                />
+                <View style={{ flex: 1, gap: 8 }}>
+                  <Button
+                    label={uploadingPhoto ? "Uploading..." : draft.imageUrl ? "Change photo" : "Choose photo"}
+                    icon="image"
+                    variant="secondary"
+                    size="sm"
+                    disabled={uploadingPhoto}
+                    onPress={handleChoosePhoto}
+                  />
+                  {draft.imageUrl ? (
+                    <Button
+                      label="Remove photo"
+                      icon="trash-2"
+                      variant="danger"
+                      size="sm"
+                      disabled={uploadingPhoto}
+                      onPress={() => setDraft({ ...draft, imageUrl: "" })}
+                    />
+                  ) : null}
+                </View>
+              </View>
+              <Text style={styles.photoHint}>
+                Browse your device or a connected cloud drive (Google Drive,
+                iCloud, etc.) — whatever your device's file picker offers.
+              </Text>
             </Field>
 
             <View style={styles.availRow}>
@@ -637,6 +677,12 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: Admin.redSoft, borderColor: Admin.red },
   chipText: { fontSize: 12.5, fontWeight: "600", color: Admin.textMuted },
   chipTextActive: { color: Admin.red },
+
+  photoRow: { flexDirection: "row", gap: 12, alignItems: "center" },
+  photoPreview: {
+    width: 64, height: 64, borderRadius: 10, backgroundColor: Admin.divider,
+  },
+  photoHint: { fontSize: 11, color: Admin.textFaint, marginTop: 8, lineHeight: 15 },
 
   availRow: {
     flexDirection: "row",
