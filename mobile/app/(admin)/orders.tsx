@@ -10,7 +10,7 @@ import {
 import { useDialog } from "@/components/admin/dialog";
 import { Field, ModalSheet, fieldStyles } from "@/components/admin/modal-sheet";
 import { Admin } from "@/constants/admin-theme";
-import { imageForName } from "@/constants/menu-catalog";
+import { menuImage } from "@/constants/menu-catalog";
 import { useAdminSession } from "@/context/AdminSession";
 import { useResponsive } from "@/hooks/use-responsive";
 import { useLocalSearchParams } from "expo-router";
@@ -48,7 +48,7 @@ const PAYMENT_TO_DISPLAY: Record<string, string> = {
   CASH: "Cash",
 };
 
-type OrderItem = { qty: string; name: string; modifier: string; price: string };
+type OrderItem = { id: number; qty: string; name: string; modifier: string; price: string; imageUrl: string | null };
 
 type Order = {
   id: string;
@@ -101,10 +101,12 @@ function mapOrder(o: any): Order {
     phone: o.phone,
     addressDetails: [o.address?.label, o.landmark ?? o.address?.details].filter(Boolean).join(" · ") || "—",
     items: o.orderItems.map((oi: any) => ({
+      id: oi.menuItem.id,
       qty: `${oi.quantity}x`,
       name: oi.menuItem.name,
       modifier: extrasText(oi.extras),
       price: `GHS ${oi.price_at_time_of_order * oi.quantity}`,
+      imageUrl: oi.menuItem.image_url ?? null,
     })),
     subtotal: `GHS ${o.total_amount - o.deliveryFee}`,
     delivery: `GHS ${o.deliveryFee}`,
@@ -401,9 +403,9 @@ export default function AdminOrdersScreen() {
 
       <Text style={styles.blockLabel}>ITEMS</Text>
       {current.items.map((it, i) => (
-        <View key={`${it.name}-${i}`} style={styles.itemRow}>
+        <View key={`${it.id}-${i}`} style={styles.itemRow}>
           <Image
-            source={imageForName(it.name)}
+            source={it.imageUrl ? { uri: it.imageUrl } : menuImage(String(it.id))}
             style={styles.itemThumb}
             resizeMode="cover"
           />

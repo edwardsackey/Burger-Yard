@@ -253,6 +253,14 @@ Log major backend changes here going forward — schema changes, new
 integrations, new endpoints, breaking changes to existing ones.
 
 ### 2026-09-03
+- **Fixed the ITEMS section of an order's detail panel (admin Orders page)
+  showing the wrong photo.** Same root cause and fix as the Dashboard
+  entry below — it matched by item *name* against the old seed-menu
+  lookup table. `GET /admin/orders` already includes each item's full
+  `MenuItem` (image_url and id included), so this was a frontend-only
+  fix: the Orders screen now renders `menuItem.image_url` directly,
+  falling back to the id-based placeholder table only when an item has
+  no uploaded photo.
 - **Fixed Dashboard "Best sellers" showing the wrong photo for an item.**
   It picked a picture by matching the item's *name* against a small
   hardcoded lookup table meant for the original seed menu — any admin-added
