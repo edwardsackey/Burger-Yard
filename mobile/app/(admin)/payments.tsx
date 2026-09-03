@@ -24,6 +24,7 @@ type Row = {
   paid: boolean;
   cancelled: boolean;
   time: string;
+  rider: string | null;
 };
 
 type PaymentsData = {
@@ -86,13 +87,14 @@ export default function AdminPaymentsScreen() {
   const buildExport = () => ({
     title: `Payments, ${filter}`,
     subtitle: "The Burger Yard",
-    columns: ["Order", "Customer", "Method", "Amount", "Status", "Time"],
+    columns: ["Order", "Customer", "Method", "Amount", "Status", "Rider", "Time"],
     rows: rows.map((r) => [
       `#${r.id}`,
       r.customer,
       methodLabel(r),
       `GHS ${r.amount}`,
       statusOf(r),
+      r.rider ?? "—",
       new Date(r.time).toLocaleString([], { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }),
     ]),
   });
@@ -108,6 +110,8 @@ export default function AdminPaymentsScreen() {
       render: (r) => <Cell strong>GHS {r.amount}</Cell> },
     { key: "status", header: "STATUS", flex: 1.3,
       render: (r) => <StatusPill status={statusOf(r)} /> },
+    { key: "rider", header: "RIDER", flex: 1.2, mobile: "meta",
+      render: (r) => <Cell muted={!r.rider}>{r.rider ?? "Unassigned"}</Cell> },
     { key: "time", header: "TIME", flex: 1, align: "right", mobile: "meta",
       render: (r) => (
         <Cell muted>

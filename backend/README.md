@@ -207,7 +207,7 @@ unused multi-tenant complexity:
 | `PUT/DELETE /api/admin/riders/:id` | Owner-only. Edit/deactivate/remove a rider from the roster |
 | `GET /api/admin/dashboard?period=today\|week\|month` | Owner-only. Real sales/orders/avg-order-value/new-customer stats (with a delta vs the equivalent previous period), a revenue series bucketed to fit the period, best sellers, an hour-of-day order histogram, and the 6 most recent orders — all computed live from `Order`/`OrderItem`/`User`, nothing precomputed or cached |
 | `GET /api/admin/reports?days=7\|30\|90` | Owner-only. Gross revenue and orders-completed with deltas vs the equivalent prior window, a real avg prep time (`readyAt - acceptedAt`, `null` until an order has both), a revenue trend (daily/weekly/monthly buckets depending on window size), a peak-hours histogram, and top-selling items by quantity with category + revenue |
-| `GET /api/admin/payments` | Owner-only. Every order reshaped as a payment record (no separate Payment table — see schema notes) with a derived status (`Paid`/`Awaiting payment`/`Cash on delivery`/`Cancelled`), plus total collected, cash outstanding, and amount awaiting online confirmation. Cancelled orders are included deliberately — a paid, cancelled order still needs a refund |
+| `GET /api/admin/payments` | Owner-only. Every order reshaped as a payment record (no separate Payment table — see schema notes) with a derived status (`Paid`/`Awaiting payment`/`Cash on delivery`/`Cancelled`) and the assigned rider's name, plus total collected, cash outstanding, and amount awaiting online confirmation. Cancelled orders are included deliberately — a paid, cancelled order still needs a refund. Marking a `CASH` order `COMPLETED` now flips it to `Paid` here automatically |
 
 ## Roadmap — what's still ahead
 
@@ -250,6 +250,21 @@ mock or unbuilt:
 
 Log major backend changes here going forward — schema changes, new
 integrations, new endpoints, breaking changes to existing ones.
+
+### 2026-09-03
+- **Marking a cash-on-delivery order "Delivered" now marks it paid.**
+  Previously `Order.paid` only ever flipped via the Paystack webhook, so a
+  completed cash order sat in "Cash outstanding" forever. `updateOrderStatus`
+  now sets `paid: true` the moment a `CASH` order transitions to `COMPLETED`
+  (the same instant delivery-code verification confirms the handoff — see
+  the 2026-09-01 entry) — MoMo/Card orders are untouched by this, since
+  their `paid` flag is already owned by the webhook. Confirmed live: a test
+  cash order moved `OUT_FOR_DELIVERY → COMPLETED` and its Payments row
+  flipped from `Cash on delivery` to `Paid` in the same request.
+- **The Payments & Revenue table now shows the assigned rider next to
+  status.** `GET /admin/payments` includes `Order.riderName`; the admin
+  Payments screen adds a RIDER column ("Unassigned" when no rider has been
+  picked yet) and includes it in CSV/PDF exports.
 
 ### 2026-09-01
 - **Replaced the menu photo URL text field with a real picker.** Added

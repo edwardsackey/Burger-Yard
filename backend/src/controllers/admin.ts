@@ -47,6 +47,7 @@ export const getPayments = async (req: AuthRequest, res: Response): Promise<void
         paid: true,
         status: true,
         createdAt: true,
+        riderName: true,
         user: { select: { name: true } },
       },
     });
@@ -60,6 +61,7 @@ export const getPayments = async (req: AuthRequest, res: Response): Promise<void
       paid: o.paid,
       cancelled: o.status === 'CANCELLED',
       time: o.createdAt,
+      rider: o.riderName,
     }));
 
     const collected = rows.filter((r) => r.paid).reduce((s, r) => s + r.amount, 0);
@@ -139,21 +141,27 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response): Promis
     // happened: whoever is at the door reads it from the customer and the
     // admin types it in, checked here against the value nobody on this
     // side of the request can see.
+    let cashCollectedOnDelivery: boolean | undefined;
     if (status === 'COMPLETED') {
       const existing = await prisma.order.findUnique({
         where: { id: orderId },
-        select: { deliveryCode: true },
+        select: { deliveryCode: true, paymentMethod: true },
       });
       if (!existing?.deliveryCode || deliveryCode !== existing.deliveryCode) {
         res.status(400).json({ message: 'Incorrect delivery code.' });
         return;
       }
+      // Cash never gets marked paid by a webhook like MoMo/Card does — the
+      // rider physically collects it at the door, which is exactly the
+      // moment this status transition represents.
+      if (existing.paymentMethod === 'CASH') cashCollectedOnDelivery = true;
     }
 
     const order = await prisma.order.update({
       where: { id: orderId },
       data: {
         status,
+        ...(cashCollectedOnDelivery ? { paid: true } : {}),
         riderName: riderName ?? undefined,
         riderPhone: riderPhone ?? undefined,
         riderVehicle: riderVehicle ?? undefined,
