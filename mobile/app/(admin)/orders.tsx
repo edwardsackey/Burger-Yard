@@ -1,4 +1,4 @@
-import { apiFetch } from "@/api";
+import { apiFetch, resolveUploadUrl } from "@/api";
 import {
   Button,
   Card,
@@ -415,7 +415,7 @@ export default function AdminOrdersScreen() {
       {current.items.map((it, i) => (
         <View key={`${it.id}-${i}`} style={styles.itemRow}>
           <Image
-            source={it.imageUrl ? { uri: it.imageUrl } : menuImage(String(it.id))}
+            source={it.imageUrl ? { uri: resolveUploadUrl(it.imageUrl)! } : menuImage(String(it.id))}
             style={styles.itemThumb}
             resizeMode="cover"
           />

@@ -1,3 +1,4 @@
+import { resolveUploadUrl } from "@/api";
 import { PLACEHOLDER_IMAGE } from "@/constants/menu-catalog";
 import type { ImageSourcePropType } from "react-native";
 
@@ -197,7 +198,7 @@ export function setLiveMenu(items: ApiMenuItem[]): void {
       price: it.price,
       rating: "4.8",
       desc: it.description ?? "",
-      image: it.image_url ? { uri: it.image_url } : (known?.image ?? PLACEHOLDER_IMAGE),
+      image: it.image_url ? { uri: resolveUploadUrl(it.image_url)! } : (known?.image ?? PLACEHOLDER_IMAGE),
       fit: known?.fit ?? "cover",
       // No per-item flag on the backend for this yet — drinks just don't
       // take burger toppings, everything else reasonably might.

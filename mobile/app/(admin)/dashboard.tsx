@@ -1,4 +1,4 @@
-import { apiFetch } from "@/api";
+import { apiFetch, resolveUploadUrl } from "@/api";
 import {
   BarChart,
   Card,
@@ -251,7 +251,7 @@ export default function AdminDashboardScreen() {
               <View key={b.id} style={styles.sellerRow}>
                 <View style={styles.sellerThumbWrap}>
                   <Image
-                    source={b.imageUrl ? { uri: b.imageUrl } : menuImage(String(b.id))}
+                    source={b.imageUrl ? { uri: resolveUploadUrl(b.imageUrl)! } : menuImage(String(b.id))}
                     style={styles.sellerThumb}
                     resizeMode="cover"
                   />

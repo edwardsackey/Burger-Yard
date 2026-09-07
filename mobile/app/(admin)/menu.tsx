@@ -1,4 +1,4 @@
-import { apiFetch } from "@/api";
+import { apiFetch, resolveUploadUrl } from "@/api";
 import { useDialog } from "@/components/admin/dialog";
 import { pickAndUploadImage } from "@/components/admin/image-upload";
 import { Field, ModalSheet, fieldStyles } from "@/components/admin/modal-sheet";
@@ -50,7 +50,7 @@ const EMPTY: MenuItem = {
 };
 
 function itemImage(item: MenuItem) {
-  return item.imageUrl ? { uri: item.imageUrl } : menuImage(String(item.id));
+  return item.imageUrl ? { uri: resolveUploadUrl(item.imageUrl)! } : menuImage(String(item.id));
 }
 
 function fromApi(o: any): MenuItem {
@@ -506,7 +506,7 @@ export default function AdminMenuScreen() {
             <Field label="Photo (optional)">
               <View style={styles.photoRow}>
                 <Image
-                  source={draft.imageUrl ? { uri: draft.imageUrl } : menuImage(String(draft.id))}
+                  source={draft.imageUrl ? { uri: resolveUploadUrl(draft.imageUrl)! } : menuImage(String(draft.id))}
                   style={styles.photoPreview}
                   resizeMode="cover"
                 />

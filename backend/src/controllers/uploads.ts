@@ -56,9 +56,12 @@ export const handleImageUpload = (req: AuthRequest, res: Response): void => {
     res.status(400).json({ message: 'No image file received' });
     return;
   }
-  // Built from the request itself rather than a fixed env var, so this
-  // resolves correctly whether the backend is reached via localhost, a LAN
-  // IP, or a cloudflared tunnel domain during dev.
-  const url = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
-  res.status(201).json({ url });
+  // Deliberately relative, not built from req.protocol/host — a cloudflared
+  // quick tunnel gets a brand-new random hostname every restart, and baking
+  // that hostname into the stored URL meant every previously uploaded photo
+  // went permanently dead the next time the tunnel restarted. The client
+  // resolves this path against whichever host it's currently configured to
+  // use (see resolveUploadUrl in mobile/api.ts), so a tunnel restart no
+  // longer breaks anything already uploaded.
+  res.status(201).json({ url: `/uploads/${req.file.filename}` });
 };

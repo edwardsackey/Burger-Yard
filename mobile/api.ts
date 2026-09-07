@@ -30,6 +30,27 @@ const getApiUrl = () => {
 };
 
 export const API_URL = getApiUrl();
+const API_ORIGIN = API_URL.replace(/\/api\/?$/, '');
+
+/**
+ * Uploaded photos are served by this same backend, but during dev the
+ * backend's own public URL changes every time its cloudflared tunnel
+ * restarts (a fresh random hostname each time). Resolving by the URL's
+ * *path* against whatever host is currently configured — rather than
+ * trusting whatever host was baked in when the photo was uploaded — means
+ * a tunnel restart doesn't leave every previously uploaded photo pointing
+ * at a dead hostname. Handles both the new relative form ("/uploads/x.jpg")
+ * and old absolute URLs from before this existed.
+ */
+export function resolveUploadUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    const path = url.startsWith('http') ? new URL(url).pathname : url;
+    return `${API_ORIGIN}${path}`;
+  } catch {
+    return url;
+  }
+}
 
 // expo-secure-store has no web implementation at all — it throws immediately
 // on web, which previously broke every apiFetch call (getToken runs before

@@ -252,6 +252,29 @@ mock or unbuilt:
 Log major backend changes here going forward — schema changes, new
 integrations, new endpoints, breaking changes to existing ones.
 
+### 2026-09-07
+- **Fixed uploaded menu photos going blank after a dev tunnel restart.**
+  `handleImageUpload` built the stored `image_url` from `req.protocol` +
+  `req.get('host')` — meaning whatever cloudflared quick-tunnel hostname
+  happened to handle that one upload request got baked permanently into
+  the database. Quick tunnels get a brand-new random hostname every
+  restart, so any previously uploaded photo went dead (blank image) the
+  next time the tunnel restarted — completely independent of anything on
+  the admin's own device; the underlying file on disk was never actually
+  lost. Fixed two ways: (1) `POST /admin/uploads/image` now returns a
+  relative path (`/uploads/<file>`) instead of an absolute URL, so new
+  uploads no longer depend on which host received the request; (2) new
+  `resolveUploadUrl()` in `mobile/api.ts` resolves any stored `image_url` —
+  relative or a stale absolute one from before this fix — against
+  whichever host the app is *currently* configured to use, by rewriting
+  just the path. Applied everywhere a menu item's photo renders: the
+  customer app's live menu (`constants/catalog.ts`), and the admin Menu,
+  Orders (ITEMS section), and Dashboard (Best sellers) screens. Confirmed
+  live: a menu item's `image_url` pointed at a since-dead tunnel hostname
+  from an earlier session; the underlying file was still present on disk,
+  and resolving it against the current host served it successfully again
+  with no re-upload needed.
+
 ### 2026-09-03
 - **The admin Orders screen's WhatsApp button now uses the real WhatsApp
   brand mark** instead of a generic message-bubble icon — `Button` gained
